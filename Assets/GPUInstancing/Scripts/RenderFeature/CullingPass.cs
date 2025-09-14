@@ -22,8 +22,12 @@ public class CullingPass : ScriptableRenderPass
         //We get our input buffer from the static class and import it to get a buffer handle
         //so that we can use it within the pass
         BufferHandle inputBufferHandle = renderGraph.ImportBuffer(InstancedDrawSystem.GetInputBuffer());
-
-            
+        
+        //We get or create an instance of this ContextItem class
+        CullingFrameData cullingFrameData = frameData.GetOrCreate<CullingFrameData>();
+        //We fill in the reference for CuledMatricesBuffer
+        cullingFrameData.CulledMatricesBuffer = inputBufferHandle;    
+        
         using (var builder = renderGraph.AddComputePass<PassData>(passName, out var passData))
         {
             //We fill in PassData with this buffer hande
