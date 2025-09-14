@@ -24,10 +24,9 @@ public class InstancedDrawSystem
                     matrices[x * height + z] = matrix;
                 }
             }
-            //We create a structured buffer that has an allocated size of float4x4 matrix per entry
+            //We create a structured buffer
             _inputBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured,
-                matrices.Length, sizeof(float) * 16);
-            _inputBuffer.SetData(matrices);
+                matrices.Length, sizeof(int));
             //Remember to name the buffer in a most unimaginative way possible
             _inputBuffer.name = "InputBuffer";
         }
