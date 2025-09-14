@@ -33,8 +33,7 @@ class InstancedDrawPass : ScriptableRenderPass
             data.material, //a material to draw that we get form the inspector
             shaderPass, //As ina previously used function we set the pass that will be used in rendering
             10000, //for know we assume all matrices are present here. We will replace this later down the line
-            block) //here, all the material properties are set
-            ;
+            block); //here, all the material properties are set
     }
     
     public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData)
