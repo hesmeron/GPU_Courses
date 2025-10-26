@@ -1,0 +1,13 @@
+#pragma kernel CSMain
+
+
+StructuredBuffer<float4x4> IN_Matrices;
+AppendStructuredBuffer<int> OUT_CulledMatrices;
+
+//We will only use id.x so reduce y in numthreads to 1
+[numthreads(1, 1,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+    OUT_CulledMatrices.Append(id.x);
+}
+   

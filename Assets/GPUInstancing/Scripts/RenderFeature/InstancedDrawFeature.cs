@@ -5,10 +5,13 @@ using UnityEngine.Rendering.RenderGraphModule;
 
 public class InstancedDrawFeature : ScriptableRendererFeature
 {
+    [SerializeField]
+    private ComputeShader computeShader;
     [SerializeField] 
     private Material material;
     [SerializeField]
     private Mesh mesh;
+    
     
     InstancedDrawPass renderPass;
     private CullingPass cullingPass;
@@ -16,7 +19,7 @@ public class InstancedDrawFeature : ScriptableRendererFeature
     /// <inheritdoc/>
     public override void Create()
     {
-        cullingPass = new CullingPass();
+        cullingPass = new CullingPass(computeShader);
         cullingPass.renderPassEvent = RenderPassEvent.BeforeRenderingOpaques;
         renderPass = new InstancedDrawPass(material, mesh);
         renderPass.renderPassEvent = RenderPassEvent.AfterRenderingOpaques;

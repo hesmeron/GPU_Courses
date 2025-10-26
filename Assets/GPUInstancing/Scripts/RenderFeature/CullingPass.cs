@@ -1,18 +1,36 @@
+using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.RenderGraphModule;
 using UnityEngine.Rendering.Universal;
 
 public class CullingPass : ScriptableRenderPass
 {
+    private static readonly int InMatrices = Shader.PropertyToID("IN_Matrices");
+    private static readonly int OutCulledMatrices = Shader.PropertyToID("OUT_CulledMatrices");
+    
+    private ComputeShader _cullingShader;
+
+    public CullingPass(ComputeShader cullingShader)
+    {
+        _cullingShader = cullingShader;
+    }
+    
     private class PassData
     {
         //Input buffer handle  that contains all the matrices to be culled
         public BufferHandle InputBufferHandle;
+        public BufferHandle OutputBufferHandle;
+        public ComputeShader Shader;
     }
     
     static void ExecutePass(PassData data, ComputeGraphContext context)
     {
-        //here will be all the culling logic
+        Debug.Log("Execute culling pass");
+        ComputeShader shader = data.Shader;
+        int kernel = shader.FindKernel("CSMain");
+        shader.SetBuffer(kernel, InMatrices, data.InputBufferHandle);
+        shader.SetBuffer(kernel, OutCulledMatrices, data.OutputBufferHandle);
+        context.cmd.DispatchCompute(shader, 0, 10000, 1, 1);
     }
     
     //We record render graph as we would in any other render feature
