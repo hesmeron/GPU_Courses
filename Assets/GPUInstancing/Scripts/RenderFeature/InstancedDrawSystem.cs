@@ -2,6 +2,7 @@ using UnityEngine;
 
 public class InstancedDrawSystem
 {
+    private static GraphicsBuffer _outputBuffer;
     private static GraphicsBuffer _inputBuffer;
     
     public static GraphicsBuffer GetInputBuffer()
@@ -33,5 +34,17 @@ public class InstancedDrawSystem
         }
 
         return _inputBuffer;
+    }
+    
+    public static GraphicsBuffer GetOutputBuffer()
+    {
+        if (_outputBuffer == null)
+        {
+            _outputBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured 
+                                               | GraphicsBuffer.Target.Append, 
+                10000,  sizeof(float) * 16);
+            _outputBuffer.name = "OutputBuffer";
+        }
+        return _outputBuffer;
     }
 }

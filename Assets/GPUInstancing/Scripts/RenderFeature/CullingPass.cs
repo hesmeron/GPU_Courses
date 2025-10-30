@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Assertions;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.RenderGraphModule;
 using UnityEngine.Rendering.Universal;
@@ -40,19 +41,25 @@ public class CullingPass : ScriptableRenderPass
         //We get our input buffer from the static class and import it to get a buffer handle
         //so that we can use it within the pass
         BufferHandle inputBufferHandle = renderGraph.ImportBuffer(InstancedDrawSystem.GetInputBuffer());
+        GraphicsBuffer outputBuffer = InstancedDrawSystem.GetOutputBuffer();
+        Assert.IsNotNull(outputBuffer);
+        BufferHandle outputBufferHandle = renderGraph.ImportBuffer(outputBuffer);
         
         //We get or create an instance of this ContextItem class
         CullingFrameData cullingFrameData = frameData.GetOrCreate<CullingFrameData>();
-        //We fill in the reference for CuledMatricesBuffer
-        cullingFrameData.CulledMatricesBuffer = inputBufferHandle;    
+        //We fill in the reference for CulledMatricesBuffer
+        cullingFrameData.CulledMatricesBuffer = outputBufferHandle;    
         
         using (var builder = renderGraph.AddComputePass<PassData>(passName, out var passData))
         {
             //We fill in PassData with this buffer hande
+            passData.Shader = _cullingShader;
             passData.InputBufferHandle = inputBufferHandle;
+            passData.OutputBufferHandle = outputBufferHandle;
             //We have to declare that we will be using this buffer so it is accessible in this pass
             //We only need read permissions as we will be not modifying this buffer.
             builder.UseBuffer(passData.InputBufferHandle, AccessFlags.Read);
+            builder.UseBuffer(passData.OutputBufferHandle, AccessFlags.ReadWrite);
             builder.SetRenderFunc((PassData data, ComputeGraphContext context) => ExecutePass(data, context));
         }
     }
