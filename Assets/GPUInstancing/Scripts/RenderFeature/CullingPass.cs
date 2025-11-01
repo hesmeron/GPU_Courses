@@ -7,13 +7,21 @@ using UnityEngine.Rendering.Universal;
 public class CullingPass : ScriptableRenderPass
 {
     private static readonly int InMatrices = Shader.PropertyToID("IN_Matrices");
+    private static readonly int InFrustumPlanes = Shader.PropertyToID("IN_FrustumPlanes");
     private static readonly int OutCulledMatrices = Shader.PropertyToID("OUT_CulledMatrices");
     
+    
     private ComputeShader _cullingShader;
+    private static ComputeBuffer planesBuffer;
 
     public CullingPass(ComputeShader cullingShader)
     {
         _cullingShader = cullingShader;
+        if (planesBuffer == null)
+        {
+            planesBuffer = new ComputeBuffer(6, sizeof(float) * 4);
+        }
+
     }
     
     private class PassData
@@ -29,6 +37,17 @@ public class CullingPass : ScriptableRenderPass
         Debug.Log("Execute culling pass");
         ComputeShader shader = data.Shader;
         int kernel = shader.FindKernel("CSMain");
+        
+        Plane[] frustumPlanes = GeometryUtility.CalculateFrustumPlanes(Camera.main);
+        Vector4[] planeVectors = new Vector4[6];
+        for (int i = 0; i < 6; i++)
+        {
+            Plane p = frustumPlanes[i];
+            planeVectors[i] = new Vector4(p.normal.x, p.normal.y, p.normal.z, p.distance);
+        }
+        planesBuffer.SetData(planeVectors);
+        context.cmd.SetBufferCounterValue(data.OutputBufferHandle, 0);
+        shader.SetBuffer(kernel, InFrustumPlanes, planesBuffer);
         shader.SetBuffer(kernel, InMatrices, data.InputBufferHandle);
         shader.SetBuffer(kernel, OutCulledMatrices, data.OutputBufferHandle);
         context.cmd.DispatchCompute(shader, 0, 10000, 1, 1);
