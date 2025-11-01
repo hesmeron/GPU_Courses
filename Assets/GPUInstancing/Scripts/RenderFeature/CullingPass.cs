@@ -9,6 +9,7 @@ public class CullingPass : ScriptableRenderPass
     private static readonly int InMatrices = Shader.PropertyToID("IN_Matrices");
     private static readonly int InFrustumPlanes = Shader.PropertyToID("IN_FrustumPlanes");
     private static readonly int OutCulledMatrices = Shader.PropertyToID("OUT_CulledMatrices");
+    private static readonly int InRadius = Shader.PropertyToID("IN_Radius");
     
     
     private ComputeShader _cullingShader;
@@ -50,6 +51,7 @@ public class CullingPass : ScriptableRenderPass
         shader.SetBuffer(kernel, InFrustumPlanes, planesBuffer);
         shader.SetBuffer(kernel, InMatrices, data.InputBufferHandle);
         shader.SetBuffer(kernel, OutCulledMatrices, data.OutputBufferHandle);
+        shader.SetFloat(InRadius, 3);
         context.cmd.DispatchCompute(shader, 0, 10000, 1, 1);
     }
     

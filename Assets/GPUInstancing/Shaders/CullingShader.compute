@@ -1,5 +1,6 @@
 #pragma kernel CSMain
 
+float IN_Radius;
 StructuredBuffer<float4> IN_FrustumPlanes;
 StructuredBuffer<float4x4> IN_Matrices;
 AppendStructuredBuffer<float4x4> OUT_CulledMatrices;
@@ -22,7 +23,7 @@ void CSMain (uint3 id : SV_DispatchThreadID)
         //dot(plane.xyz, a) is a distance between the plane and the point a
         //the plane and 
         float d = dot(plane.xyz, center) + plane.w;
-        if (d <= 0)
+        if (d <= -IN_Radius)
             return; // outside
     }
     
