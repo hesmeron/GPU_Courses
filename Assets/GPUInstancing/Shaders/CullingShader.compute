@@ -21,10 +21,11 @@ void CSMain (uint3 id : SV_DispatchThreadID)
         //that means that the plane with w = 0 will go through cooridnates (0,0)
         //dot(plane.xyz, a) is a distance between the plane and the point a
         //the plane and 
-        float d = dot(plane.xyz, center);
+        float d = dot(plane.xyz, center) + plane.w;
         if (d <= 0)
             return; // outside
     }
+    
     
 
     OUT_CulledMatrices.Append(IN_Matrices[id.x]);
