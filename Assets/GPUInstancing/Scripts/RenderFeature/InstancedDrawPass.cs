@@ -30,7 +30,7 @@ class InstancedDrawPass : ScriptableRenderPass
     
     static void ExecutePass(PassData data, RasterGraphContext context)
     {
-        int shaderPass = data.material.FindPass("Unlit");
+
         MaterialPropertyBlock block = context.renderGraphPool.GetTempMaterialPropertyBlock();
         block.SetBuffer(TransformationMatrices, data.culledMatricesBuffer);
         
@@ -41,12 +41,24 @@ class InstancedDrawPass : ScriptableRenderPass
         int counterValue = (int) counterValueArray[0];
         if (counterValue > 0)
         {
+            int shaderPass = data.material.FindPass("ForwardLit");
+            
+            context.cmd.DrawMeshInstancedProcedural(data.mesh, //a mesh to draw that we get form the inspector
+                0, //relevant when the mesh has multiple submeshes, we just set it to 0
+                data.material, //a material to draw that we get form the inspector
+                shaderPass, //As ina previously used function we set the pass that will be used in rendering
+                counterValue, //for know we assume all matrices are present here. We will replace this later down the line
+                block);     
+                  
+            /*
+            shaderPass = data.material.FindPass("ForwardPlus_LightLoop");
             context.cmd.DrawMeshInstancedProcedural(data.mesh, //a mesh to draw that we get form the inspector
                 0, //relevant when the mesh has multiple submeshes, we just set it to 0
                 data.material, //a material to draw that we get form the inspector
                 shaderPass, //As ina previously used function we set the pass that will be used in rendering
                 counterValue, //for know we assume all matrices are present here. We will replace this later down the line
                 block); //here, all the material properties are set
+                */
         }
     }
     
@@ -61,8 +73,10 @@ class InstancedDrawPass : ScriptableRenderPass
             passData.material = _material;
             passData.mesh = _mesh;
             UniversalResourceData resourceData = frameData.Get<UniversalResourceData>();
+
             
             builder.UseBuffer(passData.culledMatricesBuffer, AccessFlags.Read);
+            //builder.UseTexture(resourceData.mainShadowsTexture, AccessFlags.ReadWrite);
             builder.SetRenderAttachment(resourceData.activeColorTexture, 0);
             builder.SetRenderAttachmentDepth(resourceData.activeDepthTexture);
             builder.SetRenderFunc((PassData data, RasterGraphContext context) => ExecutePass(data, context));
