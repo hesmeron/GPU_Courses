@@ -2,11 +2,19 @@ Shader "Unlit/ProceduralDrawShader"
 {
     Properties
     {
-        _MainTex ("Texture", 2D) = "white" {}
+        [MainTexture] _MainTex("Albedo", 2D) = "white" {}
+        [MainColor] _BaseColor("Color", Color) = (1,1,1,1)
     }
     SubShader
     {
-        Tags { "RenderType"="Opaque" }
+        Tags
+        {
+            "RenderType" = "Opaque"
+            "RenderPipeline" = "UniversalPipeline"
+            "UniversalMaterialType" = "Lit"
+            "IgnoreProjector" = "True"
+        }
+        
         LOD 100
         
         Pass
@@ -20,10 +28,10 @@ Shader "Unlit/ProceduralDrawShader"
 
             // -------------------------------------
             // Render State Commands
-            Blend[_SrcBlend][_DstBlend], [_SrcBlendAlpha][_DstBlendAlpha]
-            ZWrite[_ZWrite]
-            Cull[_Cull]
-            AlphaToMask[_AlphaToMask]
+            Blend One Zero
+            ZWrite On
+            Cull Back
+
 
             HLSLPROGRAM
             #pragma target 2.0
@@ -105,6 +113,7 @@ Shader "Unlit/ProceduralDrawShader"
                 float4 positionCS : SV_POSITION;
                 float4 positionWS : TEXCOORD1;
                 float4 normalWS : NORMAL;
+                float4 shadowCoord  : TEXCOORD2;
             };
 
             StructuredBuffer<float4x4> _TransformationMatrices;
@@ -119,6 +128,7 @@ Shader "Unlit/ProceduralDrawShader"
                 o.positionCS = mul(UNITY_MATRIX_VP, positionWS);
                 o.uv = TRANSFORM_TEX(v.uv, _MainTex);
                 o.normalWS = v.normal;
+                o.shadowCoord = TransformWorldToShadowCoord(positionWS);
                 
                 return o;
             }
@@ -134,45 +144,22 @@ Shader "Unlit/ProceduralDrawShader"
                 return diffuse * radiance;
             }
             
-            half4 CustomFragmentPBR(InputData inputData, SurfaceData surfaceData)
-            {
-
-                // Clear-coat calculation...
-                half4 shadowMask = CalculateShadowMask(inputData);
-                //AmbientOcclusionFactor aoFactor = CreateAmbientOcclusionFactor(inputData, surfaceData);
-                Light mainLight = GetMainLight(inputData.shadowCoord, inputData.positionWS, shadowMask);
-
-
-                float3 attenuation = mainLight.distanceAttenuation * mainLight.shadowAttenuation;
-                float3 diffuse = surfaceData.albedo;
-                float3 mainLightColor = CustomLightingPhysicallyBased(diffuse, mainLight.color, mainLight.direction,
-                    attenuation, inputData.normalWS);
-
-                half3 lightColor = mainLightColor;
-                return float4(lightColor, 1);
-            }
-            
             float4 frag (Input input) : SV_Target
             {
                 float4 col = tex2D(_MainTex, input.uv);
-                float2 uv = input.uv;
-               // half4 albedoAlpha = half4(SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, uv));
-                //float3 albedo = albedoAlpha.rgb * _BaseColor.rgb;
 
                 half4 shadowMask = unity_ProbesOcclusion; 
-
-                float4 coords = TransformWorldToShadowCoord(input.positionWS);
-                Light mainLight = GetMainLight(coords, input.positionWS, shadowMask);
+                
+                Light mainLight = GetMainLight(input.shadowCoord, input.positionWS, shadowMask);
 
 
                 float3 attenuation = mainLight.distanceAttenuation * mainLight.shadowAttenuation;
-                //float3 diffuse = albedo;
-                float3 mainLightColor = CustomLightingPhysicallyBased(1, mainLight.color, mainLight.direction,
+                float3 diffuse = col;
+                float3 mainLightColor = CustomLightingPhysicallyBased(diffuse, mainLight.color, mainLight.direction,
                     attenuation, input.normalWS);
 
                 half3 lightColor = mainLightColor;
-                half4 color = float4(attenuation, 1);
-                color.a = 1;
+                half4 color = float4(lightColor, 1);
 
                 return color;
 /*
