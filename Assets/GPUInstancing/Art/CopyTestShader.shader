@@ -1,4 +1,4 @@
-Shader "Universal Render Pipeline/Lit"
+Shader "Experimental/Lit"
 {
     Properties
     {
@@ -77,6 +77,7 @@ Shader "Universal Render Pipeline/Lit"
             #pragma multi_compile_fragment _ _LIGHT_COOKIES
             #pragma multi_compile _ _LIGHT_LAYERS
             #pragma multi_compile _ _FORWARD_PLUS
+            #pragma multi_compile _ _CLUSTER_LIGHT_LOOP
             #include_with_pragmas "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRenderingKeywords.hlsl"
             #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/RenderingLayers.hlsl"
 
@@ -103,6 +104,8 @@ Shader "Universal Render Pipeline/Lit"
             #define UNIVERSAL_FORWARD_LIT_PASS_INCLUDED
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/RealtimeLights.hlsl"
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 // keep this file in sync with LitGBufferPass.hlsl
 
 struct Attributes
@@ -139,6 +142,7 @@ Varyings LitPassVertex(Attributes input)
 
     UNITY_SETUP_INSTANCE_ID(input);
     UNITY_TRANSFER_INSTANCE_ID(input, output);
+    
 
     VertexPositionInputs vertexInput = GetVertexPositionInputs(input.positionOS.xyz);
     
@@ -172,6 +176,13 @@ half3 CustomLightingPhysicallyBased(float3 diffuse,
     return diffuse * radiance;
 }
 
+half3 CustomLightingPhysicallyBased(float3 diffuse, Light light,half3 normalWS)
+{
+    float3 attenuation = light.distanceAttenuation * light.shadowAttenuation;
+
+    return CustomLightingPhysicallyBased(diffuse, light.color, light.direction,attenuation, normalWS);
+}
+
 // Used in Standard (Physically Based) shader
 void LitPassFragment(
     Varyings input
@@ -192,12 +203,37 @@ void LitPassFragment(
     float3 diffuse = albedo;
     float3 mainLightColor = CustomLightingPhysicallyBased(diffuse, mainLight.color, mainLight.direction,
         attenuation, input.normalWS);
+    float3 additionalLightsColor;
+
+    uint pixelLightCount = GetAdditionalLightsCount();
+
+    [loop] for (uint lightIndex = 0; lightIndex < min(pixelLightCount, MAX_VISIBLE_LIGHTS); lightIndex++)
+    {
+        //FORWARD_PLUS_SUBTRACTIVE_LIGHT_CHECK
+
+        Light light = GetAdditionalLight(lightIndex, input.positionWS, shadowMask);
+        additionalLightsColor += CustomLightingPhysicallyBased(diffuse, light, input.normalWS);
+
+    }
+    /*
+    uint pixelLightCount = GetAdditionalLightsCount();
+
+
+
+    LIGHT_LOOP_BEGIN(pixelLightCount)
+        Light light = GetAdditionalLight(lightIndex, inputData, shadowMask, aoFactor);
+            lightingData.additionalLightsColor += LightingPhysicallyBased(brdfData, brdfDataClearCoat, light,
+                                                                          inputData.normalWS, inputData.viewDirectionWS,
+                                                                          surfaceData.clearCoatMask, specularHighlightsOff);
+        
+    LIGHT_LOOP_END
+*/
 
     half3 lightColor = mainLightColor;
     half4 color = float4(lightColor, 1);
     color.a = 1;
-
-    outColor = color;
+    //uint lightCount = GetClusterLightsCount();  
+    outColor = GetAdditionalLightsCount(); float4(additionalLightsColor, 1);
 }
 
             ENDHLSL
@@ -205,7 +241,7 @@ void LitPassFragment(
     }
 
     FallBack "Hidden/Universal Render Pipeline/FallbackError"
-    CustomEditor "UnityEditor.Rendering.Universal.ShaderGUI.LitShader"
+    //CustomEditor "UnityEditor.Rendering.Universal.ShaderGUI.LitShader"
 }
 
 

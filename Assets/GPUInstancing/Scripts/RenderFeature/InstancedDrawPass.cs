@@ -41,7 +41,7 @@ class InstancedDrawPass : ScriptableRenderPass
         int counterValue = (int) counterValueArray[0];
         if (counterValue > 0)
         {
-            int shaderPass = data.material.FindPass("ForwardLit");
+            int shaderPass = data.material.FindPass("ForwardLitProcedural");
             
             context.cmd.DrawMeshInstancedProcedural(data.mesh, //a mesh to draw that we get form the inspector
                 0, //relevant when the mesh has multiple submeshes, we just set it to 0
