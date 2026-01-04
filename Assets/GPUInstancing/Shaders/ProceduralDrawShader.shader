@@ -189,7 +189,7 @@ Shader "Unlit/ProceduralDrawShader"
 
             // -------------------------------------
             // Shader Stages
-            #pragma vertex vert
+            #pragma vertex CustomLitPassVertex
             #pragma fragment frag
 
             // -------------------------------------
@@ -226,21 +226,25 @@ Shader "Unlit/ProceduralDrawShader"
 
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
 
-            struct appdata
+            struct Attributes
             {
-                float4 vertex : POSITION;
-                float2 uv : TEXCOORD0;
-                float4 normal : NORMAL;
+                 float4 positionOS   : POSITION;
+                float3 normalOS     : NORMAL;
+                float4 tangentOS    : TANGENT;
+                float2 texcoord     : TEXCOORD0;
+                float2 staticLightmapUV   : TEXCOORD1;
+                float2 dynamicLightmapUV  : TEXCOORD2;
+                UNITY_VERTEX_INPUT_INSTANCE_ID
             };
 
-            struct Input
+            struct Varyings
             {
                 float2 uv : TEXCOORD0;
                 float4 positionCS : SV_POSITION;
-                float4 positionWS : TEXCOORD1;
-                float4 normalWS : NORMAL;
-                float4 shadowCoord  : TEXCOORD2;
-                float2 normalizedScreenSpaceUV  : TEXCOORD3;
+                float3 positionWS : TEXCOORD1;
+                float3 normalWS : TEXCOORD2;
+                float4 shadowCoord  : TEXCOORD3;
+                float2 normalizedScreenSpaceUV  : TEXCOORD4;
             };
 
             StructuredBuffer<float4x4> _TransformationMatrices;
@@ -248,20 +252,39 @@ Shader "Unlit/ProceduralDrawShader"
             sampler2D _MainTex;
             float4 _MainTex_ST;
 
-            Input vert (appdata v)
-            {
-                Input o;
-                float3 positionWS = TransformObjectToWorld(v.vertex);
-                float3 positionVS = TransformWorldToView(positionWS);
-                float4 positionCS = TransformWorldToHClip(positionWS);
-                o.positionCS = positionCS;
-                o.uv = TRANSFORM_TEX(v.uv, _MainTex);
-                o.normalWS = v.normal;
-                o.shadowCoord = TransformWorldToShadowCoord(positionWS);
-                o.normalizedScreenSpaceUV = o.positionCS.xy / _ScreenParams.xy;
-                
-                return o;
-            }
+Varyings CustomLitPassVertex(Attributes input)
+{
+    Varyings output = (Varyings)0;
+
+    //UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(output);
+
+    VertexPositionInputs vertexInput = GetVertexPositionInputs(input.positionOS.xyz);
+
+
+    float3 normalWS = TransformObjectToWorldNormal(input.normalOS);
+    
+    output.uv = TRANSFORM_TEX(input.texcoord, _BaseMap);
+
+    // already normalized from normal transform to WS.
+    output.normalWS = normalWS;
+
+    OUTPUT_LIGHTMAP_UV(input.staticLightmapUV, unity_LightmapST, output.staticLightmapUV);
+
+#if defined(REQUIRES_WORLD_SPACE_POS_INTERPOLATOR)
+    output.positionWS = vertexInput.positionWS;
+#endif
+
+#if defined(REQUIRES_VERTEX_SHADOW_COORD_INTERPOLATOR)
+    //output.shadowCoord = GetShadowCoord(vertexInput);
+#endif
+
+    output.positionCS = vertexInput.positionCS;
+
+    return output;
+}
+
+
+
             
             half3 CustomLightingPhysicallyBased(float3 diffuse,
                 half3 lightColor, half3 lightDirectionWS, float lightAttenuation,
@@ -283,7 +306,7 @@ Shader "Unlit/ProceduralDrawShader"
 
             
 
-            float4 frag (Input inputData) : SV_Target
+            float4 frag (Varyings inputData) : SV_Target
             {
                 float4 col = tex2D(_MainTex, inputData.uv);
 
@@ -304,23 +327,21 @@ Shader "Unlit/ProceduralDrawShader"
                 */
                 
 
-    uint pixelLightCount = GetAdditionalLightsCount();
-    float3 additionalLightsColor;
+                uint pixelLightCount = GetAdditionalLightsCount();
+                float3 additionalLightsColor;
 
-    
-    float4 diffuse = 1;
+                
+                float4 diffuse = 1;
 
-    LIGHT_LOOP_BEGIN(pixelLightCount)
-        Light light = GetAdditionalLight(lightIndex, inputData.positionWS, shadowMask);
-        additionalLightsColor += CustomLightingPhysicallyBased(diffuse, light, inputData.normalWS);
-     
-        
-    LIGHT_LOOP_END
+                LIGHT_LOOP_BEGIN(pixelLightCount)
+                    Light light = GetAdditionalLight(lightIndex, inputData.positionWS, shadowMask);
+                    additionalLightsColor += CustomLightingPhysicallyBased(diffuse, light, inputData.normalWS);
+                LIGHT_LOOP_END
 
-                return float4(additionalLightsColor,1);
+                return float4(additionalLightsColor, 1);
+                }
+                ENDHLSL
             }
-            ENDHLSL
-        }
 
 
     }
