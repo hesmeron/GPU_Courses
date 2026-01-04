@@ -19,6 +19,7 @@ Shader "Unlit/ProceduralDrawShader"
         
         LOD 100
         
+        
         Pass
         {
             // no LightMode tag are also rendered by Universal Render Pipeline
@@ -72,40 +73,44 @@ Shader "Unlit/ProceduralDrawShader"
             #pragma instancing_options renderinglayer
 
             #include "Packages/com.unity.render-pipelines.universal/Shaders/LitInput.hlsl"
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
             //#ifndef UNIVERSAL_FORWARD_LIT_PASS_INCLUDED
 #define UNIVERSAL_FORWARD_LIT_PASS_INCLUDED
 
-#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
 
-            struct appdata
+
+            struct Attributes
             {
-                float4 vertex : POSITION;
-                float2 uv : TEXCOORD0;
-                float4 normal : NORMAL;
+                 float4 positionOS   : POSITION;
+                float3 normalOS     : NORMAL;
+                float2 texcoord     : TEXCOORD0;
+                float2 staticLightmapUV   : TEXCOORD1;
+                float2 dynamicLightmapUV  : TEXCOORD2;
             };
 
-            struct Input
+            struct Varyings
             {
-                float2 uv : TEXCOORD0;
                 float4 positionCS : SV_POSITION;
-                float4 positionWS : TEXCOORD1;
-                float4 normalWS : NORMAL;
-                float4 shadowCoord  : TEXCOORD2;
-                float2 normalizedScreenSpaceUV  : TEXCOORD3;
+                float2 uv : TEXCOORD0;
+                float3 positionWS : TEXCOORD1;
+                float3 normalWS : TEXCOORD2;
+                float4 shadowCoord  : TEXCOORD3;
+                float2 normalizedScreenSpaceUV  : TEXCOORD4;
             };
+            
 
             StructuredBuffer<float4x4> _TransformationMatrices;
             
             sampler2D _MainTex;
             float4 _MainTex_ST;
 
-            Input vert (appdata v, uint instanceId: SV_InstanceID)
+            Varyings vert (Attributes v, uint instanceId: SV_InstanceID)
             {
-                Input o;
-                float4 positionWS = mul(_TransformationMatrices[instanceId], float4(v.vertex.xyz, 1));
+                Varyings o;
+                float4 positionWS = mul(_TransformationMatrices[instanceId], float4(v.positionOS.xyz, 1));
                 o.positionCS = mul(UNITY_MATRIX_VP, positionWS);
-                o.uv = TRANSFORM_TEX(v.uv, _MainTex);
-                o.normalWS = v.normal;
+                o.uv = TRANSFORM_TEX(v.texcoord, _MainTex);
+                o.normalWS = v.normalOS;
                 o.shadowCoord = TransformWorldToShadowCoord(positionWS);
                 o.normalizedScreenSpaceUV = o.positionCS.xy / _ScreenParams.xy;
                 
@@ -129,42 +134,34 @@ Shader "Unlit/ProceduralDrawShader"
 
                 return CustomLightingPhysicallyBased(diffuse, light.color, light.direction,attenuation, normalWS);
             }
-
             
-
-            float4 frag (Input inputData) : SV_Target
+            float4 frag (Varyings inputData) : SV_Target
             {
                 float4 col = tex2D(_MainTex, inputData.uv);
-
+                //return col;
                 half4 shadowMask = unity_ProbesOcclusion; 
                 
-                //Light mainLight = GetMainLight(inputData.shadowCoord, inputData.positionWS, shadowMask);
-/*
+                Light mainLight = GetMainLight(inputData.shadowCoord, inputData.positionWS, shadowMask);
+
 
                 float3 attenuation = mainLight.distanceAttenuation * mainLight.shadowAttenuation;
                 float3 diffuse = col;
                 float3 mainLightColor = CustomLightingPhysicallyBased(diffuse, mainLight.color, mainLight.direction,
-                    attenuation, input.normalWS);
+                    attenuation, inputData.normalWS);
 
                 half3 lightColor = mainLightColor;
-                half4 color = float4(lightColor, 1);
 
+                uint pixelLightCount = GetAdditionalLightsCount();
+                float3 additionalLightsColor;
+                
+                LIGHT_LOOP_BEGIN(pixelLightCount)
+                    Light light = GetAdditionalLight(lightIndex, inputData.positionWS, shadowMask);
+                    additionalLightsColor += CustomLightingPhysicallyBased(diffuse, light, inputData.normalWS);
+                LIGHT_LOOP_END
+                half4 color = float4(col.rgb * (lightColor + additionalLightsColor), 1);
                 return color;
-                */
-                
-
-            float3 additionalLightsColor = 0;
-            uint pixelLightCount = GetAdditionalLightsCount();
-            LIGHT_LOOP_BEGIN(pixelLightCount)
-                Light light = GetAdditionalLight(lightIndex, inputData.positionWS, shadowMask);
-                additionalLightsColor += CustomLightingPhysicallyBased(float3(1,1,1), light, inputData.normalWS.rgb);
-                
-            LIGHT_LOOP_END
-
-                   
-            return float4(additionalLightsColor, 1);
-
             }
+            
             ENDHLSL
         }
 
@@ -221,67 +218,52 @@ Shader "Unlit/ProceduralDrawShader"
             #pragma instancing_options renderinglayer
 
             #include "Packages/com.unity.render-pipelines.universal/Shaders/LitInput.hlsl"
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
             //#ifndef UNIVERSAL_FORWARD_LIT_PASS_INCLUDED
 #define UNIVERSAL_FORWARD_LIT_PASS_INCLUDED
 
-#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+
 
             struct Attributes
             {
                  float4 positionOS   : POSITION;
                 float3 normalOS     : NORMAL;
-                float4 tangentOS    : TANGENT;
                 float2 texcoord     : TEXCOORD0;
                 float2 staticLightmapUV   : TEXCOORD1;
                 float2 dynamicLightmapUV  : TEXCOORD2;
-                UNITY_VERTEX_INPUT_INSTANCE_ID
             };
 
             struct Varyings
             {
-                float2 uv : TEXCOORD0;
                 float4 positionCS : SV_POSITION;
+                float2 uv : TEXCOORD0;
                 float3 positionWS : TEXCOORD1;
                 float3 normalWS : TEXCOORD2;
                 float4 shadowCoord  : TEXCOORD3;
                 float2 normalizedScreenSpaceUV  : TEXCOORD4;
             };
-
-            StructuredBuffer<float4x4> _TransformationMatrices;
             
             sampler2D _MainTex;
             float4 _MainTex_ST;
 
-Varyings CustomLitPassVertex(Attributes input)
-{
-    Varyings output = (Varyings)0;
+            Varyings CustomLitPassVertex(Attributes input)
+            {
+                Varyings output = (Varyings)0;
+                float3 positionWS = TransformObjectToWorld(input.positionOS);
+                float4 positionCS = TransformWorldToHClip(positionWS);
+                float3 normalWS = TransformObjectToWorldNormal(input.normalOS);
+                
+                output.uv = TRANSFORM_TEX(input.texcoord, _MainTex);
+                
+                output.normalWS = normalWS;
 
-    //UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(output);
+                output.positionWS = positionWS;
 
-    VertexPositionInputs vertexInput = GetVertexPositionInputs(input.positionOS.xyz);
+                output.positionCS = positionCS;
 
 
-    float3 normalWS = TransformObjectToWorldNormal(input.normalOS);
-    
-    output.uv = TRANSFORM_TEX(input.texcoord, _BaseMap);
-
-    // already normalized from normal transform to WS.
-    output.normalWS = normalWS;
-
-    OUTPUT_LIGHTMAP_UV(input.staticLightmapUV, unity_LightmapST, output.staticLightmapUV);
-
-#if defined(REQUIRES_WORLD_SPACE_POS_INTERPOLATOR)
-    output.positionWS = vertexInput.positionWS;
-#endif
-
-#if defined(REQUIRES_VERTEX_SHADOW_COORD_INTERPOLATOR)
-    //output.shadowCoord = GetShadowCoord(vertexInput);
-#endif
-
-    output.positionCS = vertexInput.positionCS;
-
-    return output;
-}
+                return output;
+            }
 
 
 
@@ -309,36 +291,28 @@ Varyings CustomLitPassVertex(Attributes input)
             float4 frag (Varyings inputData) : SV_Target
             {
                 float4 col = tex2D(_MainTex, inputData.uv);
-
+                //return col;
                 half4 shadowMask = unity_ProbesOcclusion; 
                 
-                //Light mainLight = GetMainLight(inputData.shadowCoord, inputData.positionWS, shadowMask);
-/*
+                Light mainLight = GetMainLight(inputData.shadowCoord, inputData.positionWS, shadowMask);
+
 
                 float3 attenuation = mainLight.distanceAttenuation * mainLight.shadowAttenuation;
                 float3 diffuse = col;
                 float3 mainLightColor = CustomLightingPhysicallyBased(diffuse, mainLight.color, mainLight.direction,
-                    attenuation, input.normalWS);
+                    attenuation, inputData.normalWS);
 
                 half3 lightColor = mainLightColor;
-                half4 color = float4(lightColor, 1);
-
-                return color;
-                */
-                
 
                 uint pixelLightCount = GetAdditionalLightsCount();
                 float3 additionalLightsColor;
-
                 
-                float4 diffuse = 1;
-
                 LIGHT_LOOP_BEGIN(pixelLightCount)
                     Light light = GetAdditionalLight(lightIndex, inputData.positionWS, shadowMask);
                     additionalLightsColor += CustomLightingPhysicallyBased(diffuse, light, inputData.normalWS);
                 LIGHT_LOOP_END
-
-                return float4(additionalLightsColor, 1);
+                half4 color = float4(col.rgb * (lightColor + additionalLightsColor), 1);
+                return color;
                 }
                 ENDHLSL
             }
