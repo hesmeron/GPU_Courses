@@ -106,8 +106,20 @@ Shader "Unlit/ProceduralDrawShader"
 
             Varyings vert (Attributes v, uint instanceId: SV_InstanceID)
             {
+                Varyings output = (Varyings)0;
+                float3 positionWS = mul(_TransformationMatrices[instanceId], float4(v.positionOS.xyz, 1));
+                float4 positionCS = TransformWorldToHClip(positionWS);
+                float3 normalWS = TransformObjectToWorldNormal(v.normalOS);
+                
+                output.uv = TRANSFORM_TEX(v.texcoord, _MainTex);
+                output.normalWS = normalWS;
+                output.positionWS = positionWS;
+                output.positionCS = positionCS;
+
+
+                return output;
+                /*
                 Varyings o;
-                float4 positionWS = mul(_TransformationMatrices[instanceId], float4(v.positionOS.xyz, 1));
                 o.positionCS = mul(UNITY_MATRIX_VP, positionWS);
                 o.uv = TRANSFORM_TEX(v.texcoord, _MainTex);
                 o.normalWS = v.normalOS;
@@ -115,6 +127,7 @@ Shader "Unlit/ProceduralDrawShader"
                 o.normalizedScreenSpaceUV = o.positionCS.xy / _ScreenParams.xy;
                 
                 return o;
+                */
             }
             
             half3 CustomLightingPhysicallyBased(float3 diffuse,
@@ -138,7 +151,6 @@ Shader "Unlit/ProceduralDrawShader"
             float4 frag (Varyings inputData) : SV_Target
             {
                 float4 col = tex2D(_MainTex, inputData.uv);
-                //return col;
                 half4 shadowMask = unity_ProbesOcclusion; 
                 
                 Light mainLight = GetMainLight(inputData.shadowCoord, inputData.positionWS, shadowMask);
@@ -254,19 +266,13 @@ Shader "Unlit/ProceduralDrawShader"
                 float3 normalWS = TransformObjectToWorldNormal(input.normalOS);
                 
                 output.uv = TRANSFORM_TEX(input.texcoord, _MainTex);
-                
                 output.normalWS = normalWS;
-
                 output.positionWS = positionWS;
-
                 output.positionCS = positionCS;
 
 
                 return output;
             }
-
-
-
             
             half3 CustomLightingPhysicallyBased(float3 diffuse,
                 half3 lightColor, half3 lightDirectionWS, float lightAttenuation,
@@ -285,8 +291,6 @@ Shader "Unlit/ProceduralDrawShader"
 
                 return CustomLightingPhysicallyBased(diffuse, light.color, light.direction,attenuation, normalWS);
             }
-
-            
 
             float4 frag (Varyings inputData) : SV_Target
             {
@@ -317,6 +321,56 @@ Shader "Unlit/ProceduralDrawShader"
                 ENDHLSL
             }
 
+        Pass
+        {
+            Name "ShadowCaster"
+            Tags { "LightMode" = "ShadowCaster" }
 
+            ZWrite On
+            ZTest LEqual
+            ColorMask 0
+            Cull Back
+
+            HLSLPROGRAM
+            #pragma vertex ShadowVertex
+            #pragma fragment ShadowFragment
+            #pragma multi_compile_instancing
+
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+            //#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Shadows.hlsl"
+
+            StructuredBuffer<float4x4> _TransformationMatrices;
+
+            struct Attributes
+            {
+                uint instanceID : SV_InstanceID;
+                float3 positionOS : POSITION;
+            };
+
+            struct Varyings
+            {
+                float4 positionCS : SV_POSITION;
+            };
+
+Varyings ShadowVertex(Attributes input)
+{
+    Varyings o;
+
+    float4 worldPos =
+        mul(_TransformationMatrices[input.instanceID],
+            float4(input.positionOS, 1));
+
+    // Correct for URP shadow pass
+    o.positionCS = TransformWorldToHClip(worldPos.xyz);
+
+    return o;
+}
+            
+            float4 ShadowFragment(Varyings input) : SV_Target
+            {
+                return 0;
+            }
+            ENDHLSL
+        }
     }
 }

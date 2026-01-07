@@ -9,13 +9,20 @@ class InstancedDrawPass : ScriptableRenderPass
     private static readonly int TransformationMatrices = Shader.PropertyToID("_TransformationMatrices");
     private Material _material;
     private Mesh _mesh;
-    private static GraphicsBuffer _counterCopyBuffer;
+    static ComputeBuffer _argsBuffer;
 
     public InstancedDrawPass(Material material, Mesh mesh)
     {
-        if (_counterCopyBuffer == null)
+        if (_argsBuffer == null)
         {
-            _counterCopyBuffer= new GraphicsBuffer(GraphicsBuffer.Target.Raw, 1, sizeof(uint));
+            uint[] args = new uint[5];
+            args[0] = mesh.GetIndexCount(0);
+            args[1] = (uint)10000;
+            args[2] = mesh.GetIndexStart(0);
+            args[3] = mesh.GetBaseVertex(0);
+            args[4] = 0;
+            _argsBuffer = new ComputeBuffer(1, args.Length * sizeof(uint), ComputeBufferType.IndirectArguments);
+            _argsBuffer.SetData(args);
         }
         _material = material;
         _mesh = mesh;
@@ -30,36 +37,37 @@ class InstancedDrawPass : ScriptableRenderPass
     
     static void ExecutePass(PassData data, RasterGraphContext context)
     {
-
         MaterialPropertyBlock block = context.renderGraphPool.GetTempMaterialPropertyBlock();
         block.SetBuffer(TransformationMatrices, data.culledMatricesBuffer);
+        GraphicsBuffer.CopyCount(data.culledMatricesBuffer, _argsBuffer, sizeof(uint)*1);
+        int shaderPass = data.material.FindPass("ForwardLitProcedural");
         
+        context.cmd.DrawMeshInstancedIndirect(
+            data.mesh,
+            0,
+            data.material,
+            shaderPass,
+            _argsBuffer,
+            0,
+            block);
+        /*
         GraphicsBuffer.CopyCount(data.culledMatricesBuffer, _counterCopyBuffer, 0);
         uint[] counterValueArray = new uint[1];
         _counterCopyBuffer.GetData(counterValueArray);
 //        Debug.Log("Buffer counter " + counterValueArray[0]);
+
         int counterValue = (int) counterValueArray[0];
         if (counterValue > 0)
         {
-            int shaderPass = data.material.FindPass("ForwardLitProcedural");
-            
+
             context.cmd.DrawMeshInstancedProcedural(data.mesh, //a mesh to draw that we get form the inspector
                 0, //relevant when the mesh has multiple submeshes, we just set it to 0
                 data.material, //a material to draw that we get form the inspector
                 shaderPass, //As ina previously used function we set the pass that will be used in rendering
                 counterValue, //for know we assume all matrices are present here. We will replace this later down the line
-                block);     
-                  
-            /*
-            shaderPass = data.material.FindPass("ForwardPlus_LightLoop");
-            context.cmd.DrawMeshInstancedProcedural(data.mesh, //a mesh to draw that we get form the inspector
-                0, //relevant when the mesh has multiple submeshes, we just set it to 0
-                data.material, //a material to draw that we get form the inspector
-                shaderPass, //As ina previously used function we set the pass that will be used in rendering
-                counterValue, //for know we assume all matrices are present here. We will replace this later down the line
-                block); //here, all the material properties are set
-                */
+                block);
         }
+        */
     }
     
     public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData)
