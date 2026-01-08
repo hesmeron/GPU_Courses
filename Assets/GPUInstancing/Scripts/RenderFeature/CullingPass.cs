@@ -117,12 +117,14 @@ public class CullingPass : ScriptableRenderPass
         //We get or create an instance of this ContextItem class
         CullingFrameData cullingFrameData = frameData.GetOrCreate<CullingFrameData>();
         //We fill in the reference for CulledMatricesBuffer
-        cullingFrameData.CulledMatricesBuffer = outputBufferHandle;    
+        cullingFrameData.CulledMatricesBuffer = outputBufferHandle;
+        cullingFrameData.ArgsBuffer = indirectArgsHandle;
         
         using (var builder = renderGraph.AddComputePass<PassData>(passName, out var passData))
         {
             //We fill in PassData with this buffer hande
             passData.Shader = _cullingShader;
+            passData.Mesh = _mesh;
             passData.InputBufferHandle = inputBufferHandle;
             passData.OutputBufferHandle = outputBufferHandle;
             passData.IndirectArgsBufferHandle = indirectArgsHandle;

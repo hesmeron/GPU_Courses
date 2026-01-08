@@ -20,7 +20,7 @@ public class InstancedDrawFeature : ScriptableRendererFeature
     /// <inheritdoc/>
     public override void Create()
     {
-        cullingPass = new CullingPass(computeShader);
+        cullingPass = new CullingPass(computeShader, mesh);
         cullingPass.renderPassEvent = RenderPassEvent.BeforeRendering;
         //shadowPass  = new InstancedShadowPass(material, mesh);
         renderPass = new InstancedDrawPass(material, mesh);

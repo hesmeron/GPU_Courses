@@ -9,21 +9,10 @@ class InstancedDrawPass : ScriptableRenderPass
     private static readonly int TransformationMatrices = Shader.PropertyToID("_TransformationMatrices");
     private Material _material;
     private Mesh _mesh;
-    static ComputeBuffer _argsBuffer;
 
     public InstancedDrawPass(Material material, Mesh mesh)
     {
-        if (_argsBuffer == null)
-        {
-            uint[] args = new uint[5];
-            args[0] = mesh.GetIndexCount(0);
-            args[1] = (uint)10000;
-            args[2] = mesh.GetIndexStart(0);
-            args[3] = mesh.GetBaseVertex(0);
-            args[4] = 0;
-            _argsBuffer = new ComputeBuffer(1, args.Length * sizeof(uint), ComputeBufferType.IndirectArguments);
-            _argsBuffer.SetData(args);
-        }
+
         _material = material;
         _mesh = mesh;
     }
@@ -31,6 +20,7 @@ class InstancedDrawPass : ScriptableRenderPass
     private class PassData
     {
         public BufferHandle culledMatricesBuffer;
+        public BufferHandle argsBuffer;
         public Material material;
         public Mesh mesh;
     }
@@ -39,7 +29,6 @@ class InstancedDrawPass : ScriptableRenderPass
     {
         MaterialPropertyBlock block = context.renderGraphPool.GetTempMaterialPropertyBlock();
         block.SetBuffer(TransformationMatrices, data.culledMatricesBuffer);
-        GraphicsBuffer.CopyCount(data.culledMatricesBuffer, _argsBuffer, sizeof(uint)*1);
         int shaderPass = data.material.FindPass("ForwardLitProcedural");
         
         context.cmd.DrawMeshInstancedIndirect(
@@ -47,7 +36,7 @@ class InstancedDrawPass : ScriptableRenderPass
             0,
             data.material,
             shaderPass,
-            _argsBuffer,
+            data.argsBuffer,
             0,
             block);
         /*
@@ -80,10 +69,12 @@ class InstancedDrawPass : ScriptableRenderPass
             passData.culledMatricesBuffer = cullingFrameData.CulledMatricesBuffer;
             passData.material = _material;
             passData.mesh = _mesh;
+            passData.argsBuffer = cullingFrameData.ArgsBuffer;
             UniversalResourceData resourceData = frameData.Get<UniversalResourceData>();
 
             
             builder.UseBuffer(passData.culledMatricesBuffer, AccessFlags.Read);
+            builder.UseBuffer(passData.argsBuffer, AccessFlags.Read);
             //builder.UseTexture(resourceData.mainShadowsTexture, AccessFlags.ReadWrite);
             builder.SetRenderAttachment(resourceData.activeColorTexture, 0);
             builder.SetRenderAttachmentDepth(resourceData.activeDepthTexture);
