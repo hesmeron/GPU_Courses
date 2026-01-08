@@ -39,13 +39,7 @@ public class CullingPass : ScriptableRenderPass
     
     static void ExecutePass(PassData data, ComputeGraphContext context)
     {   
-        uint[] args = new uint[5];
-        args[0] = data.Mesh.GetIndexCount(0);
-        args[1] = (uint)10000;
-        args[2] = data.Mesh.GetIndexStart(0);
-        args[3] = data.Mesh.GetBaseVertex(0);
-        args[4] = 0;
-        context.cmd.SetBufferData(data.IndirectArgsBufferHandle, args);
+
         int width = 100;
         int height = 100;
         Matrix4x4[] zedroMatices = new Matrix4x4[width*height];
@@ -110,9 +104,9 @@ public class CullingPass : ScriptableRenderPass
             sizeof(float) * 16,
             GraphicsBuffer.Target.Structured
             | GraphicsBuffer.Target.Append ));
-        
 
-        BufferHandle indirectArgsHandle = renderGraph.CreateBuffer(new BufferDesc(1, 5 * sizeof(uint), GraphicsBuffer.Target.IndirectArguments));
+
+        BufferHandle indirectArgsHandle = renderGraph.CreateBuffer(new BufferDesc(1, 5 * sizeof(uint), GraphicsBuffer.Target.IndirectArguments));//renderGraph.ImportBuffer(InstancedDrawSystem.GetArgsBuffer(_mesh));
         
         //We get or create an instance of this ContextItem class
         CullingFrameData cullingFrameData = frameData.GetOrCreate<CullingFrameData>();

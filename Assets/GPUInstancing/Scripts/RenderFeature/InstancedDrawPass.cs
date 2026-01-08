@@ -39,24 +39,6 @@ class InstancedDrawPass : ScriptableRenderPass
             data.argsBuffer,
             0,
             block);
-        /*
-        GraphicsBuffer.CopyCount(data.culledMatricesBuffer, _counterCopyBuffer, 0);
-        uint[] counterValueArray = new uint[1];
-        _counterCopyBuffer.GetData(counterValueArray);
-//        Debug.Log("Buffer counter " + counterValueArray[0]);
-
-        int counterValue = (int) counterValueArray[0];
-        if (counterValue > 0)
-        {
-
-            context.cmd.DrawMeshInstancedProcedural(data.mesh, //a mesh to draw that we get form the inspector
-                0, //relevant when the mesh has multiple submeshes, we just set it to 0
-                data.material, //a material to draw that we get form the inspector
-                shaderPass, //As ina previously used function we set the pass that will be used in rendering
-                counterValue, //for know we assume all matrices are present here. We will replace this later down the line
-                block);
-        }
-        */
     }
     
     public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData)
