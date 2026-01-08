@@ -12,11 +12,12 @@ public class  InstancedShadowPass : IShadowPass
     {
         _mesh = mesh;
         _material = material;
-        _matrices = InstancedDrawSystem.GetOutputBuffer();
+
     }
 
     public void Execute(RasterCommandBuffer cmd, ref ShadowSliceData slice)
     {
+        _matrices = InstancedDrawSystem.GetOutputBuffer();
         var argsBuffer = InstancedDrawSystem.GetArgsBuffer(_mesh);
 
         var block = new MaterialPropertyBlock();

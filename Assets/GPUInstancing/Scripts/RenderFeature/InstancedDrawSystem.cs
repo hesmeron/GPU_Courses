@@ -28,6 +28,7 @@ public class InstancedDrawSystem
             args[4] = 0;
             var buffer = new GraphicsBuffer(GraphicsBuffer.Target.IndirectArguments, 1, 5 * sizeof(uint));
             buffer.name = "ArgsBuffer_" + mesh.name;
+            buffer.SetData(args);
             _meshComputeBufferDict.Add(mesh, buffer);
             return buffer;
         }

@@ -104,9 +104,9 @@ public class CullingPass : ScriptableRenderPass
             sizeof(float) * 16,
             GraphicsBuffer.Target.Structured
             | GraphicsBuffer.Target.Append ));
+        
 
-
-        BufferHandle indirectArgsHandle = renderGraph.CreateBuffer(new BufferDesc(1, 5 * sizeof(uint), GraphicsBuffer.Target.IndirectArguments));//renderGraph.ImportBuffer(InstancedDrawSystem.GetArgsBuffer(_mesh));
+        BufferHandle indirectArgsHandle = renderGraph.ImportBuffer(InstancedDrawSystem.GetArgsBuffer(_mesh));
         
         //We get or create an instance of this ContextItem class
         CullingFrameData cullingFrameData = frameData.GetOrCreate<CullingFrameData>();
