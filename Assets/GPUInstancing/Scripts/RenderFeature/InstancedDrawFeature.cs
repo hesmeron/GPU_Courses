@@ -30,6 +30,7 @@ public class InstancedDrawFeature : ScriptableRendererFeature
     public override void AddRenderPasses(ScriptableRenderer renderer, ref RenderingData renderingData)
     {
         renderer.EnqueuePass(cullingPass); 
+        renderer.EnqueuePass(shadowPass); 
         ShadowRenderer.Enqueue(shadowPass);
         renderer.EnqueuePass(renderPass);
     }

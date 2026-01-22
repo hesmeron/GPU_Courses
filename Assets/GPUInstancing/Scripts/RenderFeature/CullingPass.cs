@@ -56,7 +56,7 @@ public class CullingPass : ScriptableRenderPass
         
         context.cmd.SetBufferData(data.OutputBufferHandle, zedroMatices);
         context.cmd.SetBufferCounterValue(data.OutputBufferHandle, 0);
-        Debug.Log("Execute culling pass");
+
         ComputeShader shader = data.Shader;
         int kernel = shader.FindKernel("CSMain");
         

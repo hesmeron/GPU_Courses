@@ -16,7 +16,7 @@ public static class ShadowRenderer
     {
         foreach (var pass in _framePasses)
         {
-            pass.Execute(cmd, ref slice);
+            pass.ExecuteShadowPass(cmd, ref slice);
         }
         _framePasses.Clear();
     }
@@ -24,5 +24,5 @@ public static class ShadowRenderer
 
 public interface IShadowPass
 {
-    void Execute(RasterCommandBuffer cmd, ref ShadowSliceData slice);
+    void ExecuteShadowPass(RasterCommandBuffer cmd, ref ShadowSliceData slice);
 }
