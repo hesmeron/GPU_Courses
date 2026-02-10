@@ -14,10 +14,13 @@ public class CullingPass : ScriptableRenderPass
     
     private ComputeShader _cullingShader;
     private static ComputeBuffer planesBuffer;
+    private static Mesh _mesh;
 
-    public CullingPass(ComputeShader cullingShader)
+
+    public CullingPass(ComputeShader cullingShader, Mesh mesh)
     {
         _cullingShader = cullingShader;
+        _mesh = mesh;
         if (planesBuffer == null)
         {
             planesBuffer = new ComputeBuffer(6, sizeof(float) * 4);
@@ -30,15 +33,30 @@ public class CullingPass : ScriptableRenderPass
         //Input buffer handle  that contains all the matrices to be culled
         public BufferHandle InputBufferHandle;
         public BufferHandle OutputBufferHandle;
+        public BufferHandle IndirectArgsBufferHandle;
         public ComputeShader Shader;
     }
     
     static void ExecutePass(PassData data, ComputeGraphContext context)
-    {
-        Debug.Log("Execute culling pass");
-        ComputeShader shader = data.Shader;
-        int kernel = shader.FindKernel("CSMain");
-        
+    {   
+        int width = 100;
+        int height = 100;
+
+        context.cmd.SetBufferCounterValue(data.OutputBufferHandle, 0);
+
+        Matrix4x4[] matrices = new Matrix4x4[width*height];
+
+        for (int x = 0; x < width; x++)
+        {
+            for (int z = 0; z < height; z++)
+            {
+                //We simply fill out this array with evenly spaced soldiers
+                Matrix4x4 matrix = Matrix4x4.TRS(new Vector3(x * 1.2f, 0, z * 1.5f), Quaternion.identity,
+                    Vector3.one);
+                matrices[x * height + z] = matrix;
+            }
+        }
+        context.cmd.SetBufferData(data.InputBufferHandle, matrices);
         Plane[] frustumPlanes = GeometryUtility.CalculateFrustumPlanes(Camera.main);
         Vector4[] planeVectors = new Vector4[6];
         for (int i = 0; i < 6; i++)
@@ -47,12 +65,23 @@ public class CullingPass : ScriptableRenderPass
             planeVectors[i] = new Vector4(p.normal.x, p.normal.y, p.normal.z, p.distance);
         }
         planesBuffer.SetData(planeVectors);
-        context.cmd.SetBufferCounterValue(data.OutputBufferHandle, 0);
+        ComputeShader shader = data.Shader;
+        int kernel = shader.FindKernel("CSMain");
         shader.SetBuffer(kernel, InFrustumPlanes, planesBuffer);
         shader.SetBuffer(kernel, InMatrices, data.InputBufferHandle);
         shader.SetBuffer(kernel, OutCulledMatrices, data.OutputBufferHandle);
         shader.SetFloat(InRadius, 3);
         context.cmd.DispatchCompute(shader, 0, 10000, 1, 1);
+        uint[] args = new uint[5];
+        args[0] = _mesh.GetIndexCount(0); //Index count
+        args[1] = (uint)10000; //Instance count
+        args[2] = _mesh.GetIndexStart(0); //IndexStart
+        args[3] = _mesh.GetBaseVertex(0); //BaseVertex
+        args[4] = 0; //Instance Start
+        context.cmd.SetBufferData(data.IndirectArgsBufferHandle, args);
+        context.cmd.CopyCounterValue(data.OutputBufferHandle,
+                                data.IndirectArgsBufferHandle,
+                                sizeof(uint));
     }
     
     //We record render graph as we would in any other render feature
@@ -61,15 +90,24 @@ public class CullingPass : ScriptableRenderPass
         const string passName = "Culling Pass";
         //We get our input buffer from the static class and import it to get a buffer handle
         //so that we can use it within the pass
-        BufferHandle inputBufferHandle = renderGraph.ImportBuffer(InstancedDrawSystem.GetInputBuffer());
-        GraphicsBuffer outputBuffer = InstancedDrawSystem.GetOutputBuffer();
-        Assert.IsNotNull(outputBuffer);
-        BufferHandle outputBufferHandle = renderGraph.ImportBuffer(outputBuffer);
+
+        var desc  =new BufferDesc(10000, sizeof(float) * 16, GraphicsBuffer.Target.Structured);
+        BufferHandle inputBufferHandle = renderGraph.CreateBuffer(desc);
+        BufferHandle outputBufferHandle = renderGraph.CreateBuffer(new BufferDesc(10000, 
+            sizeof(float) * 16,
+            GraphicsBuffer.Target.Structured
+            | GraphicsBuffer.Target.Append ));
+        
+
+        BufferHandle indirectArgsHandle = renderGraph.CreateBuffer(new BufferDesc(1, 
+                                                                    sizeof(uint) * 5,
+                                                                    GraphicsBuffer.Target.IndirectArguments));
         
         //We get or create an instance of this ContextItem class
         CullingFrameData cullingFrameData = frameData.GetOrCreate<CullingFrameData>();
         //We fill in the reference for CulledMatricesBuffer
-        cullingFrameData.CulledMatricesBuffer = outputBufferHandle;    
+        cullingFrameData.CulledMatricesBuffer = outputBufferHandle;
+        cullingFrameData.ArgsBuffer = indirectArgsHandle;
         
         using (var builder = renderGraph.AddComputePass<PassData>(passName, out var passData))
         {
@@ -77,10 +115,12 @@ public class CullingPass : ScriptableRenderPass
             passData.Shader = _cullingShader;
             passData.InputBufferHandle = inputBufferHandle;
             passData.OutputBufferHandle = outputBufferHandle;
+            passData.IndirectArgsBufferHandle = indirectArgsHandle;
             //We have to declare that we will be using this buffer so it is accessible in this pass
             //We only need read permissions as we will be not modifying this buffer.
             builder.UseBuffer(passData.InputBufferHandle, AccessFlags.Read);
-            builder.UseBuffer(passData.OutputBufferHandle, AccessFlags.ReadWrite);
+            builder.UseBuffer(passData.OutputBufferHandle, AccessFlags.Write);
+            builder.UseBuffer(passData.IndirectArgsBufferHandle, AccessFlags.Write);
             builder.SetRenderFunc((PassData data, ComputeGraphContext context) => ExecutePass(data, context));
         }
     }
