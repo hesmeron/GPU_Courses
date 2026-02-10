@@ -73,11 +73,11 @@ public class CullingPass : ScriptableRenderPass
         shader.SetFloat(InRadius, 3);
         context.cmd.DispatchCompute(shader, 0, 10000, 1, 1);
         uint[] args = new uint[5];
-        args[0] = _mesh.GetIndexCount(0);
-        args[1] = (uint)10000;
-        args[2] = _mesh.GetIndexStart(0);
-        args[3] = _mesh.GetBaseVertex(0);
-        args[4] = 0;
+        args[0] = _mesh.GetIndexCount(0); //Index count
+        args[1] = (uint)10000; //Instance count
+        args[2] = _mesh.GetIndexStart(0); //IndexStart
+        args[3] = _mesh.GetBaseVertex(0); //BaseVertex
+        args[4] = 0; //Instance Start
         context.cmd.SetBufferData(data.IndirectArgsBufferHandle, args);
         context.cmd.CopyCounterValue(data.OutputBufferHandle,
                                 data.IndirectArgsBufferHandle,
