@@ -14,12 +14,13 @@ public class CullingPass : ScriptableRenderPass
     
     private ComputeShader _cullingShader;
     private static ComputeBuffer planesBuffer;
-    private Mesh _mesh;
+    private static Mesh _mesh;
+
 
     public CullingPass(ComputeShader cullingShader, Mesh mesh)
     {
-        _mesh = mesh;
         _cullingShader = cullingShader;
+        _mesh = mesh;
         if (planesBuffer == null)
         {
             planesBuffer = new ComputeBuffer(6, sizeof(float) * 4);
@@ -33,33 +34,15 @@ public class CullingPass : ScriptableRenderPass
         public BufferHandle InputBufferHandle;
         public BufferHandle OutputBufferHandle;
         public BufferHandle IndirectArgsBufferHandle;
-        public Mesh Mesh;
         public ComputeShader Shader;
     }
     
     static void ExecutePass(PassData data, ComputeGraphContext context)
     {   
-
         int width = 100;
         int height = 100;
-        Matrix4x4[] zedroMatices = new Matrix4x4[width*height];
 
-        for (int x = 0; x < width; x++)
-        {
-            for (int z = 0; z < height; z++)
-            {
-                //We simply fill out this array with evenly spaced soldiers
-                Matrix4x4 matrix = Matrix4x4.zero;
-                zedroMatices[x * height + z] = matrix;
-            }
-        }
-        
-        context.cmd.SetBufferData(data.OutputBufferHandle, zedroMatices);
         context.cmd.SetBufferCounterValue(data.OutputBufferHandle, 0);
-
-        ComputeShader shader = data.Shader;
-        int kernel = shader.FindKernel("CSMain");
-        
 
         Matrix4x4[] matrices = new Matrix4x4[width*height];
 
@@ -82,13 +65,23 @@ public class CullingPass : ScriptableRenderPass
             planeVectors[i] = new Vector4(p.normal.x, p.normal.y, p.normal.z, p.distance);
         }
         planesBuffer.SetData(planeVectors);
-        //context.cmd.SetBufferCounterValue(data.OutputBufferHandle, 0);
+        ComputeShader shader = data.Shader;
+        int kernel = shader.FindKernel("CSMain");
         shader.SetBuffer(kernel, InFrustumPlanes, planesBuffer);
         shader.SetBuffer(kernel, InMatrices, data.InputBufferHandle);
         shader.SetBuffer(kernel, OutCulledMatrices, data.OutputBufferHandle);
         shader.SetFloat(InRadius, 3);
         context.cmd.DispatchCompute(shader, 0, 10000, 1, 1);
-        context.cmd.CopyCounterValue(data.OutputBufferHandle, data.IndirectArgsBufferHandle,sizeof(uint));
+        uint[] args = new uint[5];
+        args[0] = _mesh.GetIndexCount(0);
+        args[1] = (uint)10000;
+        args[2] = _mesh.GetIndexStart(0);
+        args[3] = _mesh.GetBaseVertex(0);
+        args[4] = 0;
+        context.cmd.SetBufferData(data.IndirectArgsBufferHandle, args);
+        context.cmd.CopyCounterValue(data.OutputBufferHandle,
+                                data.IndirectArgsBufferHandle,
+                                sizeof(uint));
     }
     
     //We record render graph as we would in any other render feature
@@ -106,7 +99,9 @@ public class CullingPass : ScriptableRenderPass
             | GraphicsBuffer.Target.Append ));
         
 
-        BufferHandle indirectArgsHandle = renderGraph.ImportBuffer(InstancedDrawSystem.GetArgsBuffer(_mesh));
+        BufferHandle indirectArgsHandle = renderGraph.CreateBuffer(new BufferDesc(1, 
+                                                                    sizeof(uint) * 5,
+                                                                    GraphicsBuffer.Target.IndirectArguments));
         
         //We get or create an instance of this ContextItem class
         CullingFrameData cullingFrameData = frameData.GetOrCreate<CullingFrameData>();
@@ -118,7 +113,6 @@ public class CullingPass : ScriptableRenderPass
         {
             //We fill in PassData with this buffer hande
             passData.Shader = _cullingShader;
-            passData.Mesh = _mesh;
             passData.InputBufferHandle = inputBufferHandle;
             passData.OutputBufferHandle = outputBufferHandle;
             passData.IndirectArgsBufferHandle = indirectArgsHandle;
