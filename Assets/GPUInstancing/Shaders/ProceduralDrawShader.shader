@@ -14,6 +14,8 @@ Shader "Unlit/ProceduralDrawShader"
             HLSLPROGRAM
             #pragma vertex vert
             #pragma fragment frag
+            
+            #pragma multi_compile _FORWARD_PLUS
 
             #include "HLSLSupport.cginc"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
@@ -66,15 +68,14 @@ Shader "Unlit/ProceduralDrawShader"
             fixed4 frag (v2f i) : SV_Target
             {
                 half4 shadowMask = unity_ProbesOcclusion; 
-                Light mainLight = GetMainLight();
+                Light mainLight = GetMainLight(i.shadowCoord, i.positionWS, shadowMask);
                 
                 half NdotL = saturate(dot(i.normalWS, mainLight.direction));
-                float3 attenuation = mainLight.distanceAttenuation;
+                float3 attenuation = mainLight.distanceAttenuation * mainLight.shadowAttenuation;
                 half3 radiance = mainLight.color * (attenuation * NdotL);
                 
-                Light mainLight = GetMainLight(i.shadowCoord, i.positionWS, shadowMask);
-                fixed4 col = tex2D(_MainTex, i.uv);
-                return float4(i.normalWS,1);
+                fixed3 col = tex2D(_MainTex, i.uv).rgb * radiance;
+                return  float4(col, 1);
             }
             ENDHLSL
         }
