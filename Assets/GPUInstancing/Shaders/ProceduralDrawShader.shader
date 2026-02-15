@@ -48,7 +48,13 @@ Shader "Unlit/ProceduralDrawShader"
             v2f vert (appdata v, uint instanceId: SV_InstanceID)
             {
                 v2f o;
+                //Calculate world space position by mutliplying object space position
+                //through ObjectToWorld matrix retreived from an array
+                //When not using ProceduralDrawing we would multiply by UNITY_MATRIX_M
                 float4 positionWS = mul(_TransformationMatrices[instanceId], float4(v.vertex.xyz, 1));
+                //Calculate world space normal by mutliplying object space normal
+                //through WorldToObject matrix by inversing the matrix retreived from an array
+                //When not using ProceduralDrawing we would multiply by UNITY_MATRIX_I_M
                 float3 normalWS = mul(v.normalOS, (float3x3)Inverse(_TransformationMatrices[instanceId]));
                 o.positionCS = mul(UNITY_MATRIX_VP, positionWS);
                 o.positionWS = positionWS;
@@ -60,6 +66,11 @@ Shader "Unlit/ProceduralDrawShader"
             fixed4 frag (v2f i) : SV_Target
             {
                 half4 shadowMask = unity_ProbesOcclusion; 
+                Light mainLight = GetMainLight();
+                
+                half NdotL = saturate(dot(i.normalWS, mainLight.direction));
+                float3 attenuation = mainLight.distanceAttenuation;
+                half3 radiance = mainLight.color * (attenuation * NdotL);
                 
                 Light mainLight = GetMainLight(i.shadowCoord, i.positionWS, shadowMask);
                 fixed4 col = tex2D(_MainTex, i.uv);
