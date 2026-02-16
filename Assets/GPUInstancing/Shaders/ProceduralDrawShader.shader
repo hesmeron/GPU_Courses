@@ -14,7 +14,8 @@ Shader "Unlit/ProceduralDrawShader"
             HLSLPROGRAM
             #pragma vertex vert
             #pragma fragment frag
-            
+
+            #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
             #pragma multi_compile _FORWARD_PLUS
 
             #include "HLSLSupport.cginc"
@@ -62,6 +63,7 @@ Shader "Unlit/ProceduralDrawShader"
                 o.positionWS = positionWS;
                 o.normalWS = normalWS;
                 o.uv = TRANSFORM_TEX(v.uv, _MainTex);
+                o.shadowCoord = TransformWorldToShadowCoord(positionWS);;
                 return o;
             }
 
