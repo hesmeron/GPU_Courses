@@ -16,7 +16,18 @@ Shader "Unlit/ProceduralDrawShader"
             #pragma fragment frag
 
             #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
+            #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
+            #pragma multi_compile _ _ADDITIONAL_LIGHTS_VERTEX _ADDITIONAL_LIGHTS
+            #pragma multi_compile _ EVALUATE_SH_MIXED EVALUATE_SH_VERTEX
+            #pragma multi_compile_fragment _ _ADDITIONAL_LIGHT_SHADOWS
+            #pragma multi_compile_fragment _ _REFLECTION_PROBE_BLENDING
+            #pragma multi_compile_fragment _ _REFLECTION_PROBE_BOX_PROJECTION
+            #pragma multi_compile_fragment _ _SHADOWS_SOFT _SHADOWS_SOFT_LOW _SHADOWS_SOFT_MEDIUM _SHADOWS_SOFT_HIGH
+            #pragma multi_compile_fragment _ _LIGHT_COOKIES
+            #pragma multi_compile _ _FORWARD_PLUS
+            #pragma multi_compile USE_FORWARD_PLUS
             #pragma multi_compile _FORWARD_PLUS
+            
 
             #include "HLSLSupport.cginc"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
@@ -41,12 +52,23 @@ Shader "Unlit/ProceduralDrawShader"
                 float3 normalWS : TEXCOORD2;
                 //Coordinates on the shadowmap
                 float4 shadowCoord  : TEXCOORD3;
+                float2 normalizedScreenSpaceUV : TEXCOORD4;
             };
 
             StructuredBuffer<float4x4> _TransformationMatrices;
             
             sampler2D _MainTex;
             float4 _MainTex_ST;
+
+            half3 LightingPhysicallyBased(Light light,half3 normalWS)
+            {
+                float3 attenuation = light.distanceAttenuation * light.shadowAttenuation;
+
+                half NdotL = saturate(dot(normalWS, light.direction));
+                half3 radiance = light.color * (attenuation * NdotL);
+
+                return radiance;
+            }
 
             v2f vert (appdata v, uint instanceId: SV_InstanceID)
             {
@@ -63,21 +85,28 @@ Shader "Unlit/ProceduralDrawShader"
                 o.positionWS = positionWS;
                 o.normalWS = normalWS;
                 o.uv = TRANSFORM_TEX(v.uv, _MainTex);
-                o.shadowCoord = TransformWorldToShadowCoord(positionWS);;
+                o.shadowCoord = TransformWorldToShadowCoord(positionWS);
+               // o.normalizedScreenSpaceUV = o.positionCS.xy / _ScreenParams.xy;
                 return o;
             }
 
-            fixed4 frag (v2f i) : SV_Target
+            fixed4 frag (v2f inputData) : SV_Target
             {
                 half4 shadowMask = unity_ProbesOcclusion; 
-                Light mainLight = GetMainLight(i.shadowCoord, i.positionWS, shadowMask);
+                Light mainLight = GetMainLight(inputData.shadowCoord, inputData.positionWS, shadowMask);
                 
-                half NdotL = saturate(dot(i.normalWS, mainLight.direction));
+                half NdotL = saturate(dot(inputData.normalWS, mainLight.direction));
                 float3 attenuation = mainLight.distanceAttenuation * mainLight.shadowAttenuation;
                 half3 radiance = mainLight.color * (attenuation * NdotL);
-                
-                fixed3 col = tex2D(_MainTex, i.uv).rgb * radiance;
-                return  float4(col, 1);
+
+                uint pixelLightCount = GetAdditionalLightsCount();
+                float3 additionalLightsColor;
+                LIGHT_LOOP_BEGIN(pixelLightCount)
+                    Light light = GetAdditionalLight(lightIndex, inputData.positionWS, shadowMask);
+                    additionalLightsColor += LightingPhysicallyBased(light, inputData.normalWS);
+                LIGHT_LOOP_END
+                fixed3 col = tex2D(_MainTex, inputData.uv).rgb * (radiance+additionalLightsColor);
+                return  float4(additionalLightsColor, 1);
             }
             ENDHLSL
         }
