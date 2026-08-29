@@ -15,12 +15,14 @@ public class InstancedDrawFeature : ScriptableRendererFeature
     
     InstancedDrawPass renderPass;
     private CullingPass cullingPass;
+    private InstancedShadowPass shadowPass;
 
     /// <inheritdoc/>
     public override void Create()
     {
         cullingPass = new CullingPass(computeShader, mesh);
         cullingPass.renderPassEvent = RenderPassEvent.BeforeRendering;
+        shadowPass  = new InstancedShadowPass(material, mesh);
         renderPass = new InstancedDrawPass(material, mesh);
         renderPass.renderPassEvent = RenderPassEvent.AfterRenderingOpaques;
     }
@@ -28,6 +30,8 @@ public class InstancedDrawFeature : ScriptableRendererFeature
     public override void AddRenderPasses(ScriptableRenderer renderer, ref RenderingData renderingData)
     {
         renderer.EnqueuePass(cullingPass); 
+        renderer.EnqueuePass(shadowPass); 
+        ShadowRenderer.Enqueue(shadowPass);
         renderer.EnqueuePass(renderPass);
     }
 }
