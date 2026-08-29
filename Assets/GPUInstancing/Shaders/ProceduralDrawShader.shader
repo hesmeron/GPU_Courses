@@ -100,5 +100,56 @@ Shader "Unlit/ProceduralDrawShader"
             }
             ENDHLSL
         }
+
+        Pass
+        {
+            Name "ShadowCaster"
+            Tags { "LightMode" = "ShadowCaster" }
+
+            ZWrite On
+            ZTest LEqual
+            ColorMask 0
+            Cull Back
+
+            HLSLPROGRAM
+            #pragma vertex ShadowVertex
+            #pragma fragment ShadowFragment
+            #pragma multi_compile_instancing
+
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+
+            StructuredBuffer<float4x4> _TransformationMatrices;
+
+            struct Attributes
+            {
+                uint instanceID : SV_InstanceID;
+                float3 positionOS : POSITION;
+            };
+
+            struct Varyings
+            {
+                float4 positionCS : SV_POSITION;
+            };
+
+            Varyings ShadowVertex(Attributes input)
+            {
+                Varyings o;
+
+                float4 worldPos =mul(_TransformationMatrices[input.instanceID],float4(input.positionOS, 1));
+
+                // Correct for URP shadow pass
+                o.positionCS = TransformWorldToHClip(worldPos.xyz);
+
+                return o;
+            }
+                        
+            float4 ShadowFragment(Varyings input) : SV_Target
+            {
+
+                //The shadows are always black in our case, but feel free to change that!  
+                return 0;
+            }
+            ENDHLSL
+        }
     }
 }
