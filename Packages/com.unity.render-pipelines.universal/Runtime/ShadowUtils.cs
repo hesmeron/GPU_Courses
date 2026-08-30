@@ -280,6 +280,7 @@ namespace UnityEngine.Rendering.Universal
             if(shadowRendererList.isValid)
                 cmd.DrawRendererList(shadowRendererList);
 
+            ShadowRenderer.Execute(cmd, ref shadowSliceData);
             cmd.DisableScissorRect();
             cmd.SetGlobalDepthBias(0.0f, 0.0f); // Restore previous depth bias values
         }
