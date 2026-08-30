@@ -147,7 +147,7 @@ Shader "Unlit/ProceduralDrawShader"
             {
 
                 //The shadows are always black in our case, but feel free to change that!  
-                return 0;
+                return 1;
             }
             ENDHLSL
         }

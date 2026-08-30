@@ -3,11 +3,6 @@ using UnityEngine.Rendering;
 using UnityEngine.Rendering.RenderGraphModule;
 using UnityEngine.Rendering.Universal;
 
-public interface IShadowPass
-{
-    void ExecuteShadowPass(RasterCommandBuffer cmd, ref ShadowSliceData slice);
-}
-
 public class  InstancedShadowPass : ScriptableRenderPass, IShadowPass
 {
     private Mesh _mesh;
@@ -51,8 +46,8 @@ public class  InstancedShadowPass : ScriptableRenderPass, IShadowPass
             
             builder.UseBuffer(passData.culledMatricesBuffer, AccessFlags.Read);
             builder.UseBuffer(passData.argsBuffer, AccessFlags.Read);
+            //we have to set render attachment even though we will have no use for it
             builder.SetRenderAttachment(resourceData.activeColorTexture, 0);
-            builder.SetRenderAttachmentDepth(resourceData.activeDepthTexture);
             builder.SetRenderFunc((PassData data, RasterGraphContext context) => ExecutePass(data, context));
         }
     }

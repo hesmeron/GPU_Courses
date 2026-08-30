@@ -2,6 +2,12 @@ using System.Collections.Generic;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 
+public interface IShadowPass
+{
+    void ExecuteShadowPass(RasterCommandBuffer cmd, ref ShadowSliceData slice);
+}
+
+
 public static class ShadowRenderer
 {
     private static readonly List<IShadowPass> _framePasses = new();
