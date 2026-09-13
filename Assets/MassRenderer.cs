@@ -26,12 +26,20 @@ public class MassRenderer : MonoBehaviour
 
         for (int i = 0; i < _instanceCount; i++)
         {
-            int numberOfColumnsPerRow =  Mathf.FloorToInt(_bounds.size.x / _spacing);
-            int x  = i%numberOfColumnsPerRow;
-            int y = (i -x)/numberOfColumnsPerRow;
-            Vector3 offset = new Vector3(x, 0, y) * _spacing;
-            Vector3 pos = start + offset;
+            Vector3 pos = GetTargetPositionFromId(i);
             Gizmos.DrawSphere(pos, _spacing/2f);
         }
+    }
+
+
+    private Vector3 GetTargetPositionFromId(int id)
+    {
+        Vector3 start = _bounds.min;
+        int numberOfColumnsPerRow =  Mathf.FloorToInt(_bounds.size.x / _spacing);
+        int x  = id%numberOfColumnsPerRow;
+        int y = (id -x)/numberOfColumnsPerRow;
+        Vector3 offset = new Vector3(x, 0, y) * _spacing;
+        Vector3 pos = start + offset;
+        return pos;
     }
 }
