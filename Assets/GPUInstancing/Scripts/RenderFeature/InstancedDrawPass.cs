@@ -53,11 +53,9 @@ class InstancedDrawPass : ScriptableRenderPass
             passData.mesh = _mesh;
             passData.argsBuffer = cullingFrameData.ArgsBuffer;
             UniversalResourceData resourceData = frameData.Get<UniversalResourceData>();
-
             
             builder.UseBuffer(passData.culledMatricesBuffer, AccessFlags.Read);
             builder.UseBuffer(passData.argsBuffer, AccessFlags.Read);
-            //builder.UseTexture(resourceData.mainShadowsTexture, AccessFlags.ReadWrite);
             builder.SetRenderAttachment(resourceData.activeColorTexture, 0);
             builder.SetRenderAttachmentDepth(resourceData.activeDepthTexture);
             builder.SetRenderFunc((PassData data, RasterGraphContext context) => ExecutePass(data, context));

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Assertions;
 using UnityEngine.Rendering;
@@ -15,6 +16,7 @@ public class CullingPass : ScriptableRenderPass
     private ComputeShader _cullingShader;
     private static ComputeBuffer planesBuffer;
     private static Mesh _mesh;
+    private static List<MassRenderer> _massRenderers = new List<MassRenderer>();
 
 
     public CullingPass(ComputeShader cullingShader, Mesh mesh)
@@ -39,23 +41,28 @@ public class CullingPass : ScriptableRenderPass
     
     static void ExecutePass(PassData data, ComputeGraphContext context)
     {   
-        int width = 100;
-        int height = 100;
-
+        Debug.Log("Execute culling pass");
         context.cmd.SetBufferCounterValue(data.OutputBufferHandle, 0);
 
-        Matrix4x4[] matrices = new Matrix4x4[width*height];
-
-        for (int x = 0; x < width; x++)
+        int matrixCount = 0;
+        //we can later do some pre culling here
+        foreach (MassRenderer renderer in _massRenderers)
         {
-            for (int z = 0; z < height; z++)
+            matrixCount += renderer.InstanceCount;
+        }
+
+        Matrix4x4[] matrices = new Matrix4x4[matrixCount];
+        int offset = 0;
+        foreach (MassRenderer renderer in _massRenderers)
+        {
+            var trsMatrices = renderer.GetTrsMatrices();
+            for (var index = 0; index < trsMatrices.Length; index++)
             {
-                //We simply fill out this array with evenly spaced soldiers
-                Matrix4x4 matrix = Matrix4x4.TRS(new Vector3(x * 1.2f, 0, z * 1.5f), Quaternion.identity,
-                    Vector3.one);
-                matrices[x * height + z] = matrix;
+                matrices[offset] = trsMatrices[index];
+                offset++;
             }
         }
+        
         context.cmd.SetBufferData(data.InputBufferHandle, matrices);
         Plane[] frustumPlanes = GeometryUtility.CalculateFrustumPlanes(Camera.main);
         Vector4[] planeVectors = new Vector4[6];
@@ -65,6 +72,7 @@ public class CullingPass : ScriptableRenderPass
             planeVectors[i] = new Vector4(p.normal.x, p.normal.y, p.normal.z, p.distance);
         }
         planesBuffer.SetData(planeVectors);
+
         ComputeShader shader = data.Shader;
         int kernel = shader.FindKernel("CSMain");
         shader.SetBuffer(kernel, InFrustumPlanes, planesBuffer);
@@ -74,7 +82,7 @@ public class CullingPass : ScriptableRenderPass
         context.cmd.DispatchCompute(shader, 0, 10000, 1, 1);
         uint[] args = new uint[5];
         args[0] = _mesh.GetIndexCount(0); //Index count
-        args[1] = (uint)10000; //Instance count
+        args[1] = (uint) matrixCount; //Instance count
         args[2] = _mesh.GetIndexStart(0); //IndexStart
         args[3] = _mesh.GetBaseVertex(0); //BaseVertex
         args[4] = 0; //Instance Start
