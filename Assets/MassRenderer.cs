@@ -11,6 +11,8 @@ public class MassRenderer : MonoBehaviour
 
     [SerializeField] 
     private int _instanceCount;
+    
+    public int InstanceCount => _instanceCount;
 
     private void OnDrawGizmos()
     {
@@ -31,7 +33,16 @@ public class MassRenderer : MonoBehaviour
         }
     }
 
+    public Matrix4x4[] GetTrsMatrices()
+    {
+        Matrix4x4[] matrices = new Matrix4x4[_instanceCount];
+        for (int i = 0; i < _instanceCount; i++)
+        {
+            matrices[i] = Matrix4x4.TRS(GetTargetPositionFromId(i), Quaternion.identity, Vector3.one);
+        }
 
+        return matrices;
+    }
     private Vector3 GetTargetPositionFromId(int id)
     {
         Vector3 start = _bounds.min;
