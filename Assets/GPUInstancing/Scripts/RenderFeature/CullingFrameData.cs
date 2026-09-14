@@ -4,6 +4,7 @@ using UnityEngine.Rendering.RenderGraphModule;
 //This class has to inherit from ContexItem class
 public class CullingFrameData : ContextItem
 {
+    public bool IsAnythingToDraw = false;
     //We have a variable that holds a reference to the buffer with culled matrices
     public BufferHandle CulledMatricesBuffer;
     public BufferHandle ArgsBuffer;

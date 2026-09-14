@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.Assertions;
 using UnityEngine.Rendering;
@@ -43,7 +44,6 @@ public class CullingPass : ScriptableRenderPass
     
     static void ExecutePass(PassData data, ComputeGraphContext context)
     {   
-        Debug.Log("Execute culling pass");
         context.cmd.SetBufferCounterValue(data.OutputBufferHandle, 0);
         
         context.cmd.SetBufferData(data.InputBufferHandle, data.Matrices);
@@ -62,7 +62,7 @@ public class CullingPass : ScriptableRenderPass
         shader.SetBuffer(kernel, InMatrices, data.InputBufferHandle);
         shader.SetBuffer(kernel, OutCulledMatrices, data.OutputBufferHandle);
         shader.SetFloat(InRadius, 3);
-        context.cmd.DispatchCompute(shader, 0, 10000, 1, 1);
+        context.cmd.DispatchCompute(shader, 0, data.Matrices.Length, 1, 1);
         uint[] args = new uint[5];
         args[0] = _mesh.GetIndexCount(0); //Index count
         args[1] = (uint) data.Matrices.Length; //Instance count
@@ -89,50 +89,54 @@ public class CullingPass : ScriptableRenderPass
             matrixCount += renderer.InstanceCount;
         }
 
-        Matrix4x4[] matrices = new Matrix4x4[matrixCount];
-        int offset = 0;
-        foreach (MassRenderer renderer in _massRenderers)
-        {
-            var trsMatrices = renderer.GetTrsMatrices();
-            for (var index = 0; index < trsMatrices.Length; index++)
-            {
-                matrices[offset] = trsMatrices[index];
-                offset++;
-            }
-        }
-        
-        var desc  =new BufferDesc(10000, sizeof(float) * 16, GraphicsBuffer.Target.Structured);
-        BufferHandle inputBufferHandle = renderGraph.CreateBuffer(desc);
-        BufferHandle outputBufferHandle = renderGraph.CreateBuffer(new BufferDesc(10000, 
-            sizeof(float) * 16,
-            GraphicsBuffer.Target.Structured
-            | GraphicsBuffer.Target.Append ));
-        
-
-        BufferHandle indirectArgsHandle = renderGraph.CreateBuffer(new BufferDesc(1, 
-                                                                    sizeof(uint) * 5,
-                                                                    GraphicsBuffer.Target.IndirectArguments));
-        
-        //We get or create an instance of this ContextItem class
         CullingFrameData cullingFrameData = frameData.GetOrCreate<CullingFrameData>();
-        //We fill in the reference for CulledMatricesBuffer
-        cullingFrameData.CulledMatricesBuffer = outputBufferHandle;
-        cullingFrameData.ArgsBuffer = indirectArgsHandle;
-        
-        using (var builder = renderGraph.AddComputePass<PassData>(passName, out var passData))
+        cullingFrameData.IsAnythingToDraw = matrixCount > 0;
+        if (cullingFrameData.IsAnythingToDraw)
         {
-            //We fill in PassData with this buffer hande
-            passData.Shader = _cullingShader;
-            passData.InputBufferHandle = inputBufferHandle;
-            passData.OutputBufferHandle = outputBufferHandle;
-            passData.IndirectArgsBufferHandle = indirectArgsHandle;
-            passData.Matrices = matrices;
-            //We have to declare that we will be using this buffer so it is accessible in this pass
-            //We only need read permissions as we will be not modifying this buffer.
-            builder.UseBuffer(passData.InputBufferHandle, AccessFlags.Read);
-            builder.UseBuffer(passData.OutputBufferHandle, AccessFlags.Write);
-            builder.UseBuffer(passData.IndirectArgsBufferHandle, AccessFlags.Write);
-            builder.SetRenderFunc((PassData data, ComputeGraphContext context) => ExecutePass(data, context));
+            Matrix4x4[] matrices = new Matrix4x4[matrixCount];
+            int offset = 0;
+            foreach (MassRenderer renderer in _massRenderers)
+            {
+                var trsMatrices = renderer.GetTrsMatrices();
+                for (var index = 0; index < trsMatrices.Length; index++)
+                {
+                    matrices[offset] = trsMatrices[index];
+                    offset++;
+                }
+            }
+            
+            var desc  =new BufferDesc(matrixCount, sizeof(float) * 16, GraphicsBuffer.Target.Structured);
+            BufferHandle inputBufferHandle = renderGraph.CreateBuffer(desc);
+            BufferHandle outputBufferHandle = renderGraph.CreateBuffer(new BufferDesc(matrixCount, 
+                sizeof(float) * 16,
+                GraphicsBuffer.Target.Structured
+                | GraphicsBuffer.Target.Append ));
+            
+
+            BufferHandle indirectArgsHandle = renderGraph.CreateBuffer(new BufferDesc(1, 
+                                                                        sizeof(uint) * 5,
+                                                                        GraphicsBuffer.Target.IndirectArguments));
+            
+            //We get or create an instance of this ContextItem class
+            //We fill in the reference for CulledMatricesBuffer
+            cullingFrameData.CulledMatricesBuffer = outputBufferHandle;
+            cullingFrameData.ArgsBuffer = indirectArgsHandle;
+            
+            using (var builder = renderGraph.AddComputePass<PassData>(passName, out var passData))
+            {
+                //We fill in PassData with this buffer hande
+                passData.Shader = _cullingShader;
+                passData.InputBufferHandle = inputBufferHandle;
+                passData.OutputBufferHandle = outputBufferHandle;
+                passData.IndirectArgsBufferHandle = indirectArgsHandle;
+                passData.Matrices = matrices;
+                //We have to declare that we will be using this buffer so it is accessible in this pass
+                //We only need read permissions as we will be not modifying this buffer.
+                builder.UseBuffer(passData.InputBufferHandle, AccessFlags.Read);
+                builder.UseBuffer(passData.OutputBufferHandle, AccessFlags.Write);
+                builder.UseBuffer(passData.IndirectArgsBufferHandle, AccessFlags.Write);
+                builder.SetRenderFunc((PassData data, ComputeGraphContext context) => ExecutePass(data, context));
+            }
         }
     }
 }

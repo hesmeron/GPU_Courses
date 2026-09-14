@@ -1,4 +1,5 @@
 using System;
+using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.RenderGraphModule;
@@ -45,20 +46,24 @@ class InstancedDrawPass : ScriptableRenderPass
     {
         const string passName = "Render Custom Pass";
         CullingFrameData cullingFrameData = frameData.GetOrCreate<CullingFrameData>();
-            
-        using (var builder = renderGraph.AddRasterRenderPass<PassData>(passName, out var passData))
+
+        if (cullingFrameData.IsAnythingToDraw)
         {
-            passData.culledMatricesBuffer = cullingFrameData.CulledMatricesBuffer;
-            passData.material = _material;
-            passData.mesh = _mesh;
-            passData.argsBuffer = cullingFrameData.ArgsBuffer;
-            UniversalResourceData resourceData = frameData.Get<UniversalResourceData>();
+            using (var builder = renderGraph.AddRasterRenderPass<PassData>(passName, out var passData))
+            {
+                passData.culledMatricesBuffer = cullingFrameData.CulledMatricesBuffer;
+                passData.material = _material;
+                passData.mesh = _mesh;
+                passData.argsBuffer = cullingFrameData.ArgsBuffer;
+                UniversalResourceData resourceData = frameData.Get<UniversalResourceData>();
             
-            builder.UseBuffer(passData.culledMatricesBuffer, AccessFlags.Read);
-            builder.UseBuffer(passData.argsBuffer, AccessFlags.Read);
-            builder.SetRenderAttachment(resourceData.activeColorTexture, 0);
-            builder.SetRenderAttachmentDepth(resourceData.activeDepthTexture);
-            builder.SetRenderFunc((PassData data, RasterGraphContext context) => ExecutePass(data, context));
+                builder.UseBuffer(passData.culledMatricesBuffer, AccessFlags.Read);
+                builder.UseBuffer(passData.argsBuffer, AccessFlags.Read);
+                builder.SetRenderAttachment(resourceData.activeColorTexture, 0);
+                builder.SetRenderAttachmentDepth(resourceData.activeDepthTexture);
+                builder.SetRenderFunc((PassData data, RasterGraphContext context) => ExecutePass(data, context));
+            }
         }
+
     }
 }

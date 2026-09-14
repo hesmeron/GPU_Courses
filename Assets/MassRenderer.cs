@@ -1,6 +1,7 @@
 using System;
 using UnityEngine;
 
+[ExecuteAlways]
 public class MassRenderer : MonoBehaviour
 {
     [SerializeField] 
@@ -37,7 +38,6 @@ public class MassRenderer : MonoBehaviour
     {
         InstancedDrawFeature.SubscribeToRendering(this);
     }
-    
     private void OnDisable()
     {
         InstancedDrawFeature.UnsubscribeToRendering(this);
