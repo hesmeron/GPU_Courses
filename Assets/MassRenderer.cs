@@ -33,12 +33,22 @@ public class MassRenderer : MonoBehaviour
         }
     }
 
+    private void OnEnable()
+    {
+        InstancedDrawFeature.SubscribeToRendering(this);
+    }
+    
+    private void OnDisable()
+    {
+        InstancedDrawFeature.UnsubscribeToRendering(this);
+    }
+
     public Matrix4x4[] GetTrsMatrices()
     {
         Matrix4x4[] matrices = new Matrix4x4[_instanceCount];
         for (int i = 0; i < _instanceCount; i++)
         {
-            matrices[i] = Matrix4x4.TRS(GetTargetPositionFromId(i), Quaternion.identity, Vector3.one);
+            matrices[i] = Matrix4x4.TRS(GetTargetPositionFromId(i), Quaternion.identity, Vector3.one) * transform.localToWorldMatrix;
         }
 
         return matrices;

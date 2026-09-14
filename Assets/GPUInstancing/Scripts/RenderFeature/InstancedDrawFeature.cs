@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
@@ -16,11 +17,13 @@ public class InstancedDrawFeature : ScriptableRendererFeature
     InstancedDrawPass renderPass;
     private CullingPass cullingPass;
     private InstancedShadowPass shadowPass;
+    
+    private static List<MassRenderer> _massRenderers = new List<MassRenderer>();
 
     /// <inheritdoc/>
     public override void Create()
     {
-        cullingPass = new CullingPass(computeShader, mesh);
+        cullingPass = new CullingPass(computeShader, mesh, _massRenderers);
         cullingPass.renderPassEvent = RenderPassEvent.BeforeRendering;
         shadowPass  = new InstancedShadowPass(material, mesh);
         renderPass = new InstancedDrawPass(material, mesh);
@@ -33,5 +36,15 @@ public class InstancedDrawFeature : ScriptableRendererFeature
         renderer.EnqueuePass(shadowPass); 
         ShadowRenderer.Enqueue(shadowPass);
         renderer.EnqueuePass(renderPass);
+    }
+
+    public static void SubscribeToRendering(MassRenderer renderer)
+    {
+        _massRenderers.Add(renderer);
+    }    
+    
+    public static void UnsubscribeToRendering(MassRenderer renderer)
+    {
+        _massRenderers.Remove(renderer);
     }
 }
