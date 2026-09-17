@@ -13,7 +13,10 @@ public class MassRenderer : MonoBehaviour
     [SerializeField] 
     private int _instanceCount;
     
+    private Matrix4x4[] _cachedMatrices;
+    
     public int InstanceCount => _instanceCount;
+    public Matrix4x4[] CachedMatrices => _cachedMatrices;
 
     private void OnDrawGizmos()
     {
@@ -43,7 +46,30 @@ public class MassRenderer : MonoBehaviour
         InstancedDrawFeature.UnsubscribeToRendering(this);
     }
 
+    private void Awake()
+    {
+        _cachedMatrices = GenerateMatrices();
+    }
+
     public Matrix4x4[] GetTrsMatrices()
+    {
+        if (_cachedMatrices != null)
+        {
+            return _cachedMatrices;
+        }
+        else
+        {
+            Matrix4x4[] matrices = new Matrix4x4[_instanceCount];
+            for (int i = 0; i < _instanceCount; i++)
+            {
+                matrices[i] = Matrix4x4.TRS(GetTargetPositionFromId(i), Quaternion.identity, Vector3.one) * transform.localToWorldMatrix;
+            }
+
+            return matrices;
+        }
+    }
+    
+    private Matrix4x4[] GenerateMatrices()
     {
         Matrix4x4[] matrices = new Matrix4x4[_instanceCount];
         for (int i = 0; i < _instanceCount; i++)
@@ -52,7 +78,9 @@ public class MassRenderer : MonoBehaviour
         }
 
         return matrices;
+        
     }
+    
     private Vector3 GetTargetPositionFromId(int id)
     {
         Vector3 start = _bounds.min;

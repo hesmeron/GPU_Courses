@@ -86,7 +86,7 @@ public class CullingPass : ScriptableRenderPass
         //we can later do some pre culling here
         foreach (MassRenderer renderer in _massRenderers)
         {
-            matrixCount += renderer.InstanceCount;
+            matrixCount += renderer.CachedMatrices.Length;
         }
 
         CullingFrameData cullingFrameData = frameData.GetOrCreate<CullingFrameData>();
@@ -98,10 +98,13 @@ public class CullingPass : ScriptableRenderPass
             foreach (MassRenderer renderer in _massRenderers)
             {
                 var trsMatrices = renderer.GetTrsMatrices();
-                for (var index = 0; index < trsMatrices.Length; index++)
+                if (trsMatrices.Length > 0)
                 {
-                    matrices[offset] = trsMatrices[index];
-                    offset++;
+                    for (var index = 0; index < trsMatrices.Length; index++)
+                    {
+                        matrices[offset] = trsMatrices[index];
+                        offset++;
+                    }
                 }
             }
             
