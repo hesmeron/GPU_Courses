@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Unity.Collections;
 using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.Assertions;
@@ -39,14 +40,20 @@ public class CullingPass : ScriptableRenderPass
         public BufferHandle OutputBufferHandle;
         public BufferHandle IndirectArgsBufferHandle;
         public ComputeShader Shader;
-        public Matrix4x4[] Matrices;
+        public NativeArray<Matrix4x4>[] Matrices;
     }
     
     static void ExecutePass(PassData data, ComputeGraphContext context)
     {   
         context.cmd.SetBufferCounterValue(data.OutputBufferHandle, 0);
-        
-        context.cmd.SetBufferData(data.InputBufferHandle, data.Matrices);
+
+        int offset = 0;
+        foreach (NativeArray<Matrix4x4> nativeArray in data.Matrices)
+        {
+            context.cmd.SetBufferData(data.InputBufferHandle, nativeArray, 0, offset, nativeArray.Length);
+            offset += nativeArray.Length;
+        }
+
         Plane[] frustumPlanes = GeometryUtility.CalculateFrustumPlanes(Camera.main);
         Vector4[] planeVectors = new Vector4[6];
         for (int i = 0; i < 6; i++)
@@ -62,10 +69,10 @@ public class CullingPass : ScriptableRenderPass
         shader.SetBuffer(kernel, InMatrices, data.InputBufferHandle);
         shader.SetBuffer(kernel, OutCulledMatrices, data.OutputBufferHandle);
         shader.SetFloat(InRadius, 3);
-        context.cmd.DispatchCompute(shader, 0, data.Matrices.Length, 1, 1);
+        context.cmd.DispatchCompute(shader, 0, offset, 1, 1);
         uint[] args = new uint[5];
         args[0] = _mesh.GetIndexCount(0); //Index count
-        args[1] = (uint) data.Matrices.Length; //Instance count
+        args[1] = (uint) offset; //Instance count
         args[2] = _mesh.GetIndexStart(0); //IndexStart
         args[3] = _mesh.GetBaseVertex(0); //BaseVertex
         args[4] = 0; //Instance Start
@@ -86,28 +93,22 @@ public class CullingPass : ScriptableRenderPass
         //we can later do some pre culling here
         foreach (MassRenderer renderer in _massRenderers)
         {
-            matrixCount += renderer.CachedMatrices.Length;
+            matrixCount += renderer.Matrices.Length;
         }
 
         CullingFrameData cullingFrameData = frameData.GetOrCreate<CullingFrameData>();
         cullingFrameData.IsAnythingToDraw = matrixCount > 0;
         if (cullingFrameData.IsAnythingToDraw)
         {
-            Matrix4x4[] matrices = new Matrix4x4[matrixCount];
-            int offset = 0;
-            foreach (MassRenderer renderer in _massRenderers)
-            {
-                var trsMatrices = renderer.GetTrsMatrices();
-                if (trsMatrices.Length > 0)
-                {
-                    for (var index = 0; index < trsMatrices.Length; index++)
-                    {
-                        matrices[offset] = trsMatrices[index];
-                        offset++;
-                    }
-                }
-            }
+            NativeArray<Matrix4x4>[] matrices = new NativeArray<Matrix4x4>[_massRenderers.Count];
             
+            for (var i = 0; i < _massRenderers.Count; i++)
+            {
+                var renderer = _massRenderers[i];
+                NativeArray<Matrix4x4> trsMatrices = renderer.Matrices;
+                matrices[i] = trsMatrices;
+            }
+
             var desc  =new BufferDesc(matrixCount, sizeof(float) * 16, GraphicsBuffer.Target.Structured);
             BufferHandle inputBufferHandle = renderGraph.CreateBuffer(desc);
             BufferHandle outputBufferHandle = renderGraph.CreateBuffer(new BufferDesc(matrixCount, 

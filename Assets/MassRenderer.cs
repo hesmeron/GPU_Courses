@@ -1,4 +1,5 @@
 using System;
+using Unity.Collections;
 using UnityEngine;
 
 [ExecuteAlways]
@@ -16,7 +17,10 @@ public class MassRenderer : MonoBehaviour
     private Matrix4x4[] _cachedMatrices;
     
     public int InstanceCount => _instanceCount;
+    //We use native matrices to cut down on the copy time to buffers
+    NativeArray<Matrix4x4> _nativeMatrices;
     public Matrix4x4[] CachedMatrices => _cachedMatrices;
+    public NativeArray<Matrix4x4> Matrices => _nativeMatrices;
 
     private void OnDrawGizmos()
     {
@@ -39,16 +43,20 @@ public class MassRenderer : MonoBehaviour
 
     private void OnEnable()
     {
+        //_cachedMatrices = GenerateMatrices();
+        _nativeMatrices = GenerateNativeMatrixArray();
+        
         InstancedDrawFeature.SubscribeToRendering(this);
     }
     private void OnDisable()
     {
+        _nativeMatrices.Dispose();
         InstancedDrawFeature.UnsubscribeToRendering(this);
     }
 
     private void Awake()
     {
-        _cachedMatrices = GenerateMatrices();
+
     }
 
     public Matrix4x4[] GetTrsMatrices()
@@ -72,6 +80,17 @@ public class MassRenderer : MonoBehaviour
     private Matrix4x4[] GenerateMatrices()
     {
         Matrix4x4[] matrices = new Matrix4x4[_instanceCount];
+        for (int i = 0; i < _instanceCount; i++)
+        {
+            matrices[i] = Matrix4x4.TRS(GetTargetPositionFromId(i), Quaternion.identity, Vector3.one) * transform.localToWorldMatrix;
+        }
+
+        return matrices;
+        
+    }    
+    private NativeArray<Matrix4x4> GenerateNativeMatrixArray()
+    {
+        NativeArray<Matrix4x4> matrices = new NativeArray<Matrix4x4>(_instanceCount, Allocator.Persistent);
         for (int i = 0; i < _instanceCount; i++)
         {
             matrices[i] = Matrix4x4.TRS(GetTargetPositionFromId(i), Quaternion.identity, Vector3.one) * transform.localToWorldMatrix;
