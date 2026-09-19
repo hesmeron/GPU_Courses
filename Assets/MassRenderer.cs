@@ -5,22 +5,34 @@ using UnityEngine;
 [ExecuteAlways]
 public class MassRenderer : MonoBehaviour
 {
+    [SerializeField]
+    private RenderingResourceContainer _renderingResourceContainer;
     [SerializeField] 
     private Bounds _bounds;
-
     [SerializeField] 
     private float _spacing;
-
     [SerializeField] 
     private int _instanceCount;
     
     private Matrix4x4[] _cachedMatrices;
+    
+    [SerializeField]
+    [HideInInspector]
+    private Material _material;
     
     public int InstanceCount => _instanceCount;
     //We use native matrices to cut down on the copy time to buffers
     NativeArray<Matrix4x4> _nativeMatrices;
     public Matrix4x4[] CachedMatrices => _cachedMatrices;
     public NativeArray<Matrix4x4> Matrices => _nativeMatrices;
+
+    public RenderingResourceContainer RenderingResourceContainer => _renderingResourceContainer;
+
+    public Material Material
+    {
+        get => _material;
+        set => _material = value;
+    }
 
     private void OnDrawGizmos()
     {
@@ -43,11 +55,11 @@ public class MassRenderer : MonoBehaviour
 
     private void OnEnable()
     {
-        //_cachedMatrices = GenerateMatrices();
         _nativeMatrices = GenerateNativeMatrixArray();
         
         InstancedDrawFeature.SubscribeToRendering(this);
     }
+    
     private void OnDisable()
     {
         _nativeMatrices.Dispose();
